@@ -3,6 +3,7 @@ ENV XDG_CACHE_HOME=/app/.cache
 WORKDIR /app
 RUN apk add --no-cache openssl
 COPY . .
+ARG DATABASE_URL="postgresql://build:build@localhost:5432/build"
 RUN npm ci --ignore-scripts --no-audit --no-fund \
  && npm run generate \
  && npm run build -w packages/contracts -w packages/core -w packages/bus \
