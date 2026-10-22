@@ -34,7 +34,7 @@ jobs:
           now=$(date '+%Y-%m-%d %H:%M:%S %z')
           echo "$now" >> .github/rotina/registro.log
           tail -n 400 .github/rotina/registro.log > .github/rotina/registro.tmp && mv .github/rotina/registro.tmp .github/rotina/registro.log
-          git add .github/rotina/registro.log
+          git add -f .github/rotina/registro.log
           git commit -m "Atualiza registro de $(date '+%d/%m/%Y %H:%M')"
           for attempt in 1 2 3; do
             git pull --rebase --quiet origin "${GITHUB_REF_NAME}" && git push origin "HEAD:${GITHUB_REF_NAME}" && exit 0
