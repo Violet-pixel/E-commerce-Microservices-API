@@ -1,0 +1,21 @@
+{
+  "name": "@cesto/gateway",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "dev": "tsx watch --env-file-if-exists=../../.env src/main.ts",
+    "start": "node dist/main.js"
+  },
+  "dependencies": {
+    "@cesto/contracts": "1.0.0",
+    "@cesto/core": "1.0.0",
+    "@fastify/http-proxy": "^11.3.0",
+    "@fastify/rate-limit": "^10.3.0",
+    "ioredis": "^5.8.0",
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {}
+}

@@ -1,0 +1,97 @@
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum OrderStatus {
+  PENDING
+  AWAITING_PAYMENT
+  CONFIRMED
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  card
+  pix
+  boleto
+}
+
+enum Currency {
+  BRL
+  USD
+  EUR
+}
+
+model Order {
+  id              String         @id @default(uuid()) @db.Uuid
+  number          Int            @unique @default(autoincrement())
+  userId          String         @map("user_id") @db.VarChar(64)
+  status          OrderStatus    @default(PENDING)
+  totalCents      Int            @map("total_cents")
+  currency        Currency       @default(BRL)
+  paymentMethod   PaymentMethod  @map("payment_method")
+  paymentToken    String?        @map("payment_token") @db.VarChar(64)
+  shippingAddress Json           @map("shipping_address")
+  cancelReason    String?        @map("cancel_reason") @db.VarChar(200)
+  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  items           OrderItem[]
+  history         OrderHistory[]
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id             String @id @default(uuid()) @db.Uuid
+  orderId        String @map("order_id") @db.Uuid
+  productId      String @map("product_id") @db.Uuid
+  sku            String @db.VarChar(40)
+  name           String @db.VarChar(120)
+  unitPriceCents Int    @map("unit_price_cents")
+  quantity       Int
+  order          Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@map("order_items")
+}
+
+model OrderHistory {
+  id        String      @id @default(uuid()) @db.Uuid
+  orderId   String      @map("order_id") @db.Uuid
+  status    OrderStatus
+  note      String?     @db.VarChar(200)
+  createdAt DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  order     Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, createdAt])
+  @@map("order_history")
+}
+
+model ProcessedEvent {
+  eventId   String   @id @map("event_id") @db.Uuid
+  name      String   @db.VarChar(60)
+  handledAt DateTime @default(now()) @map("handled_at") @db.Timestamptz(3)
+
+  @@map("processed_events")
+}
+
+model OutboxEvent {
+  id          String    @id @db.Uuid
+  name        String    @db.VarChar(60)
+  envelope    Json
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  publishedAt DateTime? @map("published_at") @db.Timestamptz(3)
+
+  @@index([publishedAt, createdAt])
+  @@map("outbox_events")
+}

@@ -1,0 +1,42 @@
+{
+  "name": "cesto",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "packages/contracts",
+    "packages/core",
+    "packages/bus",
+    "services/auth",
+    "services/catalog",
+    "services/inventory",
+    "services/cart",
+    "services/orders",
+    "services/payments",
+    "services/notifications",
+    "services/gateway",
+    "apps/web"
+  ],
+  "scripts": {
+    "generate": "node scripts/generate.mjs",
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present && tsc -p tsconfig.test.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "migrate": "node scripts/migrate.mjs",
+    "clean": "node scripts/clean.mjs",
+    "dev": "node scripts/dev.mjs",
+    "start:local": "node scripts/dev.mjs --built",
+    "smoke": "node scripts/smoke.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7"
+  }
+}

@@ -1,0 +1,36 @@
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum NotificationKind {
+  WELCOME
+  ORDER_PLACED
+  ORDER_CONFIRMED
+  ORDER_CANCELLED
+  ORDER_SHIPPED
+  ORDER_DELIVERED
+  PAYMENT_DECLINED
+}
+
+model Notification {
+  id        String           @id @default(uuid()) @db.Uuid
+  eventId   String           @unique @map("event_id") @db.Uuid
+  userId    String           @map("user_id") @db.VarChar(64)
+  kind      NotificationKind
+  title     String           @db.VarChar(120)
+  body      String           @db.VarChar(500)
+  orderId   String?          @map("order_id") @db.Uuid
+  readAt    DateTime?        @map("read_at") @db.Timestamptz(3)
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([userId, createdAt])
+  @@index([userId, readAt])
+  @@map("notifications")
+}

@@ -1,0 +1,27 @@
+{
+  "name": "@cesto/auth",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "dev": "tsx watch --env-file-if-exists=../../.env src/main.ts",
+    "start": "node dist/main.js",
+    "migrate": "prisma migrate deploy",
+    "migrate:dev": "prisma migrate dev"
+  },
+  "dependencies": {
+    "@cesto/bus": "1.0.0",
+    "@cesto/contracts": "1.0.0",
+    "@cesto/core": "1.0.0",
+    "@fastify/formbody": "^8.0.2",
+    "@prisma/adapter-pg": "^7.10.1",
+    "@prisma/client": "^7.10.1",
+    "jose": "^6.1.0",
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "prisma": "^7.10.1"
+  }
+}

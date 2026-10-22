@@ -1,0 +1,61 @@
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ReservationStatus {
+  HELD
+  COMMITTED
+  RELEASED
+}
+
+model StockItem {
+  productId    String        @id @map("product_id") @db.Uuid
+  sku          String        @db.VarChar(40)
+  available    Int           @default(0)
+  reserved     Int           @default(0)
+  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  reservations Reservation[]
+
+  @@map("stock_items")
+}
+
+model Reservation {
+  id        String            @id @default(uuid()) @db.Uuid
+  orderId   String            @map("order_id") @db.Uuid
+  productId String            @map("product_id") @db.Uuid
+  quantity  Int
+  status    ReservationStatus @default(HELD)
+  createdAt DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  stock     StockItem         @relation(fields: [productId], references: [productId], onDelete: Restrict)
+
+  @@unique([orderId, productId])
+  @@index([status, createdAt])
+  @@map("reservations")
+}
+
+model ProcessedEvent {
+  eventId   String   @id @map("event_id") @db.Uuid
+  name      String   @db.VarChar(60)
+  handledAt DateTime @default(now()) @map("handled_at") @db.Timestamptz(3)
+
+  @@map("processed_events")
+}
+
+model OutboxEvent {
+  id          String    @id @db.Uuid
+  name        String    @db.VarChar(60)
+  envelope    Json
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  publishedAt DateTime? @map("published_at") @db.Timestamptz(3)
+
+  @@index([publishedAt, createdAt])
+  @@map("outbox_events")
+}

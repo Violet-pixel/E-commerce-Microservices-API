@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '.github/rotina/**'
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: cesto
+          POSTGRES_PASSWORD: cesto
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U cesto"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      DB_USER: cesto
+      DB_PASSWORD: cesto
+      DB_HOST: localhost
+      REDIS_URL: redis://localhost:6379
+      SERVICE_CLIENT_SECRET: ci-segredo-de-servico
+      PAYMENT_DELAY_MS: '100'
+      LOG_LEVEL: warn
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run generate
+      - run: npm run build
+      - run: npm run typecheck
+      - run: npm test
+        env:
+          TEST_REDIS_URL: redis://localhost:6379
+      - name: Bancos de dados
+        run: psql -h localhost -U cesto -d postgres -f docker/postgres/init.sql
+        env:
+          PGPASSWORD: cesto
+      - run: npm run migrate
+      - name: Ponta a ponta
+        run: |
+          npm run start:local > stack.log 2>&1 &
+          for i in $(seq 1 60); do curl -fs http://localhost:8000/health && break; sleep 2; done
+          API_URL=http://localhost:8000 REDIRECT_URI=http://localhost:8080/callback npm run smoke
+      - if: failure()
+        run: cat stack.log || true
+
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -f docker/service.Dockerfile -t cesto-service .
+      - run: docker build -f docker/web.Dockerfile -t cesto-web .

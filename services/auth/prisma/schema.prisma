@@ -1,0 +1,85 @@
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  CUSTOMER
+  ADMIN
+}
+
+model User {
+  id            String         @id @default(uuid()) @db.Uuid
+  email         String         @unique @db.VarChar(254)
+  name          String         @db.VarChar(80)
+  passwordHash  String         @map("password_hash")
+  role          Role           @default(CUSTOMER)
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  refreshTokens RefreshToken[]
+  codes         AuthorizationCode[]
+
+  @@map("users")
+}
+
+model OAuthClient {
+  id           String   @id @db.VarChar(64)
+  name         String   @db.VarChar(80)
+  secretHash   String?  @map("secret_hash")
+  redirectUris String[] @map("redirect_uris")
+  grantTypes   String[] @map("grant_types")
+  scopes       String[]
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@map("oauth_clients")
+}
+
+model AuthorizationCode {
+  codeHash      String    @id @map("code_hash") @db.Char(64)
+  clientId      String    @map("client_id") @db.VarChar(64)
+  userId        String    @map("user_id") @db.Uuid
+  redirectUri   String    @map("redirect_uri")
+  codeChallenge String    @map("code_challenge") @db.VarChar(128)
+  scope         String
+  expiresAt     DateTime  @map("expires_at") @db.Timestamptz(3)
+  usedAt        DateTime? @map("used_at") @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+  @@map("authorization_codes")
+}
+
+model RefreshToken {
+  id         String    @id @default(uuid()) @db.Uuid
+  tokenHash  String    @unique @map("token_hash") @db.Char(64)
+  familyId   String    @map("family_id") @db.Uuid
+  clientId   String    @map("client_id") @db.VarChar(64)
+  userId     String    @map("user_id") @db.Uuid
+  scope      String
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(3)
+  revokedAt  DateTime? @map("revoked_at") @db.Timestamptz(3)
+  rotatedAt  DateTime? @map("rotated_at") @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([familyId])
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model SigningKey {
+  kid        String   @id @db.VarChar(64)
+  privateJwk Json     @map("private_jwk")
+  publicJwk  Json     @map("public_jwk")
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@map("signing_keys")
+}

@@ -1,0 +1,11 @@
+node_modules/
+dist/
+coverage/
+.env
+*.log
+.DS_Store
+services/*/src/generated/
+apps/web/dist/
+.data/
+dump.rdb
+.cache/

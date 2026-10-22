@@ -1,0 +1,172 @@
+name: cesto
+
+x-service: &service
+  build:
+    context: .
+    dockerfile: docker/service.Dockerfile
+  image: cesto-service:latest
+  restart: unless-stopped
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
+x-env: &env
+  NODE_ENV: production
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  REDIS_URL: redis://redis:6379
+  AUTH_URL: http://auth:4001
+  AUTH_ISSUER: ${AUTH_ISSUER:-cesto-auth}
+  AUTH_AUDIENCE: ${AUTH_AUDIENCE:-cesto-api}
+  CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080}
+  SERVICE_CLIENT_ID: ${SERVICE_CLIENT_ID:-cesto-internal}
+  SERVICE_CLIENT_SECRET: ${SERVICE_CLIENT_SECRET:?defina SERVICE_CLIENT_SECRET no .env}
+  CATALOG_URL: http://catalog:4002
+  INVENTORY_URL: http://inventory:4003
+  CART_URL: http://cart:4004
+  ORDERS_URL: http://orders:4005
+  PAYMENTS_URL: http://payments:4006
+  NOTIFICATIONS_URL: http://notifications:4007
+  SEED_DEMO: ${SEED_DEMO:-true}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-cesto}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?defina DB_PASSWORD no .env}
+      POSTGRES_DB: postgres
+    volumes:
+      - postgres:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/01-databases.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  auth:
+    <<: *service
+    environment:
+      <<: *env
+      SERVICE: auth
+      PORT: 4001
+      DATABASE_URL: postgresql://${DB_USER:-cesto}:${DB_PASSWORD}@postgres:5432/cesto_auth
+      ACCESS_TOKEN_TTL: ${ACCESS_TOKEN_TTL:-900}
+      REFRESH_TOKEN_TTL: ${REFRESH_TOKEN_TTL:-2592000}
+      WEB_REDIRECT_URIS: ${WEB_REDIRECT_URIS:-http://localhost:8080/callback}
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-Cesto@2026}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:4001/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  catalog:
+    <<: *service
+    depends_on:
+      auth:
+        condition: service_healthy
+    environment:
+      <<: *env
+      SERVICE: catalog
+      PORT: 4002
+      DATABASE_URL: postgresql://${DB_USER:-cesto}:${DB_PASSWORD}@postgres:5432/cesto_catalog
+
+  inventory:
+    <<: *service
+    depends_on:
+      auth:
+        condition: service_healthy
+    environment:
+      <<: *env
+      SERVICE: inventory
+      PORT: 4003
+      DATABASE_URL: postgresql://${DB_USER:-cesto}:${DB_PASSWORD}@postgres:5432/cesto_inventory
+
+  cart:
+    <<: *service
+    depends_on:
+      auth:
+        condition: service_healthy
+    environment:
+      <<: *env
+      SERVICE: cart
+      PORT: 4004
+
+  orders:
+    <<: *service
+    depends_on:
+      auth:
+        condition: service_healthy
+    environment:
+      <<: *env
+      SERVICE: orders
+      PORT: 4005
+      DATABASE_URL: postgresql://${DB_USER:-cesto}:${DB_PASSWORD}@postgres:5432/cesto_orders
+
+  payments:
+    <<: *service
+    depends_on:
+      auth:
+        condition: service_healthy
+    environment:
+      <<: *env
+      SERVICE: payments
+      PORT: 4006
+      DATABASE_URL: postgresql://${DB_USER:-cesto}:${DB_PASSWORD}@postgres:5432/cesto_payments
+      PAYMENT_DECLINE_ABOVE_CENTS: ${PAYMENT_DECLINE_ABOVE_CENTS:-500000}
+      PAYMENT_DELAY_MS: ${PAYMENT_DELAY_MS:-800}
+
+  notifications:
+    <<: *service
+    depends_on:
+      auth:
+        condition: service_healthy
+    environment:
+      <<: *env
+      SERVICE: notifications
+      PORT: 4007
+      DATABASE_URL: postgresql://${DB_USER:-cesto}:${DB_PASSWORD}@postgres:5432/cesto_notifications
+
+  gateway:
+    <<: *service
+    depends_on:
+      auth:
+        condition: service_healthy
+    environment:
+      <<: *env
+      SERVICE: gateway
+      PORT: 8000
+      RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-300}
+      RATE_LIMIT_WINDOW: ${RATE_LIMIT_WINDOW:-1 minute}
+    ports:
+      - "${GATEWAY_PORT:-8000}:8000"
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - gateway
+    ports:
+      - "${APP_PORT:-8080}:80"
+
+volumes:
+  postgres:
+  redis:

@@ -1,0 +1,65 @@
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum PaymentStatus {
+  APPROVED
+  DECLINED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  card
+  pix
+  boleto
+}
+
+enum Currency {
+  BRL
+  USD
+  EUR
+}
+
+model Payment {
+  id          String        @id @default(uuid()) @db.Uuid
+  orderId     String        @map("order_id") @db.Uuid
+  userId      String        @map("user_id") @db.VarChar(64)
+  amountCents Int           @map("amount_cents")
+  currency    Currency      @default(BRL)
+  method      PaymentMethod
+  status      PaymentStatus
+  reason      String?       @db.VarChar(200)
+  providerRef String        @map("provider_ref") @db.VarChar(80)
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([orderId])
+  @@index([userId, createdAt])
+  @@map("payments")
+}
+
+model ProcessedEvent {
+  eventId   String   @id @map("event_id") @db.Uuid
+  name      String   @db.VarChar(60)
+  handledAt DateTime @default(now()) @map("handled_at") @db.Timestamptz(3)
+
+  @@map("processed_events")
+}
+
+model OutboxEvent {
+  id          String    @id @db.Uuid
+  name        String    @db.VarChar(60)
+  envelope    Json
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  publishedAt DateTime? @map("published_at") @db.Timestamptz(3)
+
+  @@index([publishedAt, createdAt])
+  @@map("outbox_events")
+}

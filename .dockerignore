@@ -1,0 +1,12 @@
+node_modules
+**/node_modules
+**/dist
+**/src/generated
+.git
+.github
+.env
+coverage
+docs
+*.pdf
+dump.rdb
+.cache

@@ -1,0 +1,57 @@
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Currency {
+  BRL
+  USD
+  EUR
+}
+
+model Category {
+  id        String    @id @default(uuid()) @db.Uuid
+  name      String    @db.VarChar(60)
+  slug      String    @unique @db.VarChar(120)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  products  Product[]
+
+  @@map("categories")
+}
+
+model Product {
+  id          String    @id @default(uuid()) @db.Uuid
+  sku         String    @unique @db.VarChar(40)
+  name        String    @db.VarChar(120)
+  slug        String    @unique @db.VarChar(120)
+  description String    @default("")
+  priceCents  Int       @map("price_cents")
+  currency    Currency  @default(BRL)
+  imageUrl    String?   @map("image_url") @db.VarChar(500)
+  active      Boolean   @default(true)
+  categoryId  String?   @map("category_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  category    Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@index([categoryId])
+  @@index([active, createdAt])
+  @@map("products")
+}
+
+model OutboxEvent {
+  id          String    @id @db.Uuid
+  name        String    @db.VarChar(60)
+  envelope    Json
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  publishedAt DateTime? @map("published_at") @db.Timestamptz(3)
+
+  @@index([publishedAt, createdAt])
+  @@map("outbox_events")
+}

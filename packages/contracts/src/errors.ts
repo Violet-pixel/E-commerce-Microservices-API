@@ -1,0 +1,48 @@
+import { z } from 'zod';
+
+export const ErrorCode = z.enum([
+  'VALIDATION_FAILED',
+  'UNAUTHENTICATED',
+  'FORBIDDEN',
+  'NOT_FOUND',
+  'CONFLICT',
+  'RATE_LIMITED',
+  'INSUFFICIENT_STOCK',
+  'EMPTY_CART',
+  'INVALID_STATE_TRANSITION',
+  'PAYMENT_DECLINED',
+  'INVALID_GRANT',
+  'INVALID_CLIENT',
+  'UNSUPPORTED_GRANT_TYPE',
+  'INVALID_SCOPE',
+  'UPSTREAM_UNAVAILABLE',
+  'INTERNAL'
+]);
+export type ErrorCode = z.infer<typeof ErrorCode>;
+
+export const errorStatus: Record<ErrorCode, number> = {
+  VALIDATION_FAILED: 422,
+  UNAUTHENTICATED: 401,
+  FORBIDDEN: 403,
+  NOT_FOUND: 404,
+  CONFLICT: 409,
+  RATE_LIMITED: 429,
+  INSUFFICIENT_STOCK: 409,
+  EMPTY_CART: 422,
+  INVALID_STATE_TRANSITION: 409,
+  PAYMENT_DECLINED: 402,
+  INVALID_GRANT: 400,
+  INVALID_CLIENT: 401,
+  UNSUPPORTED_GRANT_TYPE: 400,
+  INVALID_SCOPE: 400,
+  UPSTREAM_UNAVAILABLE: 503,
+  INTERNAL: 500
+};
+
+export const oauthErrorName: Partial<Record<ErrorCode, string>> = {
+  INVALID_GRANT: 'invalid_grant',
+  INVALID_CLIENT: 'invalid_client',
+  UNSUPPORTED_GRANT_TYPE: 'unsupported_grant_type',
+  INVALID_SCOPE: 'invalid_scope',
+  VALIDATION_FAILED: 'invalid_request'
+};
