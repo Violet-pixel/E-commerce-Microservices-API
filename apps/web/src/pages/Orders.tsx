@@ -5,40 +5,50 @@ import { useAsync, useInterval } from '../hooks';
 import { FINAL, STATUS_LABEL, dateTime, money } from '../format';
 import { Empty, StatusPill } from '../components/ui';
 
+const PAYMENT_LABEL: Record<string, string> = { pix: 'Pix', card: 'Cartão', boleto: 'Boleto' };
+
 export const OrderCard = ({ order, actions }: { order: OrderDto; actions?: React.ReactNode }) => (
   <article className="order">
     <header>
       <div>
         <h3>Pedido #{order.number}</h3>
-        <span className="muted small">
-          {dateTime(order.createdAt)} · {order.paymentMethod.toUpperCase()} · {order.shippingAddress.city}/{order.shippingAddress.state}
-        </span>
+        <p className="order-meta">
+          <time>{dateTime(order.createdAt)}</time>
+          <span>{PAYMENT_LABEL[order.paymentMethod] ?? order.paymentMethod}</span>
+          <span>
+            {order.shippingAddress.city}/{order.shippingAddress.state}
+          </span>
+        </p>
       </div>
       <StatusPill status={order.status} />
     </header>
-    <ul className="order-items">
-      {order.items.map((i) => (
-        <li key={i.productId}>
-          <span>
-            {i.quantity}× {i.name}
-          </span>
-          <span>{money(i.subtotalCents, order.currency)}</span>
+    <div className="order-body">
+      <ul className="order-items">
+        {order.items.map((i) => (
+          <li key={i.productId}>
+            <span>
+              {i.quantity}× {i.name}
+            </span>
+            <i className="leader" aria-hidden="true" />
+            <span>{money(i.subtotalCents, order.currency)}</span>
+          </li>
+        ))}
+        <li className="sum">
+          <span>Total</span>
+          <i className="leader" aria-hidden="true" />
+          <strong>{money(order.totalCents, order.currency)}</strong>
         </li>
-      ))}
-      <li className="sum">
-        <span>Total</span>
-        <strong>{money(order.totalCents, order.currency)}</strong>
-      </li>
-    </ul>
-    <ol className="timeline">
-      {order.history.map((h, index) => (
-        <li key={`${h.status}-${index}`} className={h.status === 'CANCELLED' ? 'bad' : ''}>
-          <strong>{STATUS_LABEL[h.status]}</strong>
-          <span>{h.note}</span>
-          <time>{dateTime(h.at)}</time>
-        </li>
-      ))}
-    </ol>
+      </ul>
+      <ol className={FINAL.includes(order.status) ? 'timeline done' : 'timeline'}>
+        {order.history.map((h, index) => (
+          <li key={`${h.status}-${index}`} className={h.status === 'CANCELLED' ? 'bad' : ''}>
+            <strong>{STATUS_LABEL[h.status]}</strong>
+            <span>{h.note}</span>
+            <time>{dateTime(h.at)}</time>
+          </li>
+        ))}
+      </ol>
+    </div>
     {actions ? <footer>{actions}</footer> : null}
   </article>
 );

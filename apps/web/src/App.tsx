@@ -163,7 +163,9 @@ export const App = () => {
         </div>
       ) : null}
       <footer className="foot">
-        <span>Cesto · API de e-commerce com microsserviços</span>
+        <span>
+          <strong>Cesto 1.1.0</strong>, loja de demonstração da API de e-commerce com microsserviços
+        </span>
         <a href="/api/docs" target="_blank" rel="noreferrer">
           Documentação da API
         </a>

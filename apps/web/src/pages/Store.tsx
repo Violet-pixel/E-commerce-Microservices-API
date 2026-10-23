@@ -4,7 +4,7 @@ import type { ProductQuery } from '@cesto/contracts';
 import { api, request } from '../api';
 import { useAsync } from '../hooks';
 import { money } from '../format';
-import { Empty, ProductTile } from '../components/ui';
+import { Empty, PriceTag, ProductTile } from '../components/ui';
 
 type Sort = ProductQuery['sort'];
 
@@ -15,6 +15,7 @@ export const Store = ({ onAdd, canBuy }: { onAdd: (productId: string) => Promise
   const [sort, setSort] = useState<Sort>('newest');
   const [page, setPage] = useState(1);
   const [busy, setBusy] = useState<string | null>(null);
+  const [swing, setSwing] = useState<string | null>(null);
 
   const categories = useAsync(() => request(api.catalog.listCategories, {}), []);
   const products = useAsync(
@@ -27,6 +28,8 @@ export const Store = ({ onAdd, canBuy }: { onAdd: (productId: string) => Promise
 
   const add = async (id: string) => {
     setBusy(id);
+    setSwing(id);
+    window.setTimeout(() => setSwing((current) => (current === id ? null : current)), 950);
     try {
       await onAdd(id);
     } finally {
@@ -83,21 +86,22 @@ export const Store = ({ onAdd, canBuy }: { onAdd: (productId: string) => Promise
           const out = units !== undefined && units <= 0;
           return (
             <article key={p.id} className="card">
-              <ProductTile sku={p.sku} name={p.name} imageUrl={p.imageUrl} />
+              <div className="stall">
+                <ProductTile sku={p.sku} name={p.name} imageUrl={p.imageUrl} />
+                <PriceTag label={money(p.priceCents, p.currency)} out={out} swing={swing === p.id} />
+              </div>
               <div className="card-body">
-                <span className="muted small">
-                  {p.category?.name ?? 'Sem categoria'} · {p.sku}
+                <span className="card-meta">
+                  <span className="cat">{p.category?.name ?? 'Sem categoria'}</span>
+                  <span className="sku">{p.sku}</span>
                 </span>
                 <h3>{p.name}</h3>
                 <p>{p.description}</p>
               </div>
               <div className="card-foot">
-                <div>
-                  <strong>{money(p.priceCents, p.currency)}</strong>
-                  <span className={out ? 'stock out' : units !== undefined && units < 5 ? 'stock low' : 'stock'}>
-                    {units === undefined ? '…' : out ? 'Sem estoque' : `${units} em estoque`}
-                  </span>
-                </div>
+                <span className={out ? 'stock out' : units !== undefined && units < 5 ? 'stock low' : 'stock'}>
+                  {units === undefined ? '…' : out ? 'Sem estoque' : `${units} em estoque`}
+                </span>
                 <button className="btn primary icon" disabled={busy === p.id || out} onClick={() => void add(p.id)} title={canBuy ? 'Adicionar ao carrinho' : 'Entre para comprar'}>
                   <Plus size={18} aria-hidden="true" />
                   <span>Adicionar</span>
