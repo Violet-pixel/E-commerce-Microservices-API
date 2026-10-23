@@ -3,7 +3,7 @@ import { Minus, Plus, Trash2, X } from 'lucide-react';
 import type { CartDto, CheckoutBody, OrderDto, PaymentMethod } from '@cesto/contracts';
 import { api, errorMessage, request } from '../api';
 import { money } from '../format';
-import { Empty, Field, ProductTile } from './ui';
+import { Empty, Field, ProductTile, productImage } from './ui';
 
 const blankAddress = { recipient: '', street: '', number: '', complement: '', district: '', city: '', state: '', postalCode: '' };
 
@@ -62,7 +62,7 @@ export const CartPanel = ({ cart, onChange, onClose, onOrdered }: { cart: CartDt
             <ul className="lines">
               {cart.items.map((i) => (
                 <li key={i.productId} className={i.available ? '' : 'unavailable'}>
-                  <ProductTile sku={i.sku} name={i.name} imageUrl={i.imageUrl} small />
+                  <ProductTile src={productImage(i)} small />
                   <div>
                     <strong>{i.name}</strong>
                     <span className="muted small">{money(i.unitPriceCents)} cada</span>
@@ -154,6 +154,19 @@ export const CartPanel = ({ cart, onChange, onClose, onOrdered }: { cart: CartDt
           ) : null}
           <p className="muted small">O pagamento é simulado. Nenhum dado real é enviado.</p>
           <footer>
+            {cart && cart.items.length ? (
+              <ul className="summary" aria-label="Itens do pedido">
+                {cart.items.map((i) => (
+                  <li key={i.productId}>
+                    <ProductTile src={productImage(i)} small />
+                    <span>
+                      {i.quantity}× {i.name}
+                    </span>
+                    <span>{money(i.subtotalCents)}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
             <div className="total">
               <span>Total</span>
               <strong>{money(cart?.totalCents ?? 0)}</strong>

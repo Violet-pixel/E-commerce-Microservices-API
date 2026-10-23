@@ -12,7 +12,7 @@
   TypeScript 5.9, Node.js 22, Fastify 5, Prisma 7, PostgreSQL 16, Redis 7 Streams, Zod 4, OAuth2 com PKCE, React 19 com Vite, Docker Compose e Vitest
 </p>
 
-<p align="center"><img src="docs/images/tela-loja.png" alt="Loja com catálogo, filtros por categoria e preço em etiqueta pendurada"></p>
+<p align="center"><img src="docs/images/tela-loja.png" alt="Loja com catálogo ilustrado, filtros por categoria, preço e estoque de cada produto"></p>
 
 Versão 1.1.0. Dois manuais em PDF acompanham o projeto:
 
@@ -29,6 +29,7 @@ O Cesto cobre o caminho inteiro de uma loja, dividido em oito serviços: gateway
 - Cada rota é um contrato Zod. O mesmo contrato valida a entrada no servidor, tipa o handler, gera o OpenAPI e alimenta o cliente HTTP tipado da interface.
 - Erros de negócio (`NotFound`, `Conflict`, `InsufficientStock`, `InvalidTransition` e outros) viram respostas HTTP padronizadas, com código, mensagem, detalhes por campo e `requestId`.
 - A loja web tem catálogo com busca, carrinho, checkout, acompanhamento do pedido etapa por etapa, notificações e painel administrativo de produtos, estoque e expedição.
+- Cada um dos 16 produtos de demonstração tem uma ilustração própria em SVG (`apps/web/public/produtos/<slug>.svg`), gravada em `imageUrl` pelo seed. Um produto com `imageUrl` próprio mostra essa imagem; sem ela, a loja tenta a ilustração do slug e, se não houver, mostra um espaço neutro.
 - Para operar: health checks, rate limit no gateway, logs estruturados, desligamento gracioso, migrações versionadas e Swagger em `/api/docs`.
 
 ## Ver rodando

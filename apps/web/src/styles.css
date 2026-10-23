@@ -1,4 +1,4 @@
-/* Cesto 1.1.0 — banca de feira: lona, folha, palha e beterraba. */
+/* Cesto 1.1.0: vitrine quieta, ilustrações de catálogo sobre a lona, folha como única cor de ação. */
 
 @font-face {
   font-family: 'Bricolage Grotesque';
@@ -48,12 +48,11 @@
   --folha: #3b7a4c;
   --folha-escura: #2c5e3a;
   --folha-clara: #dde9dc;
-  --palha: #c79c52;
   --palha-clara: #f0e3c8;
   --palha-escura: #7d5413;
   --beterraba: #8c2b4b;
   --beterraba-clara: #f3dde3;
-  --barbante: #8a7a5c;
+  --vitrine: #eceee7;
   --titulo: 'Bricolage Grotesque', 'Figtree', system-ui, sans-serif;
   --texto: 'Figtree', system-ui, sans-serif;
   font-family: var(--texto);
@@ -92,15 +91,15 @@ h3 {
 
 h1 {
   font-size: 34px;
-  font-weight: 800;
-  font-stretch: 85%;
-  letter-spacing: -0.01em;
+  font-weight: 650;
+  font-stretch: 92%;
+  letter-spacing: -0.015em;
 }
 
 h2 {
   font-size: 24px;
-  font-weight: 750;
-  font-stretch: 90%;
+  font-weight: 700;
+  font-stretch: 94%;
 }
 
 h3 {
@@ -143,7 +142,7 @@ main {
   min-height: 64px;
   padding: 0 24px;
   background: var(--lona);
-  border-bottom: 2px solid var(--tinta);
+  border-bottom: 1px solid var(--risco);
 }
 
 .brand {
@@ -155,9 +154,9 @@ main {
   background: none;
   cursor: pointer;
   font-family: var(--titulo);
-  font-size: 26px;
-  font-weight: 800;
-  font-stretch: 88%;
+  font-size: 24px;
+  font-weight: 700;
+  font-stretch: 92%;
   letter-spacing: -0.01em;
 }
 
@@ -194,9 +193,9 @@ main {
   position: absolute;
   left: 12px;
   right: 12px;
-  bottom: -2px;
-  height: 4px;
-  background: var(--folha);
+  bottom: -1px;
+  height: 2px;
+  background: var(--tinta);
 }
 
 .top-actions {
@@ -284,7 +283,7 @@ main {
   height: 18px;
   padding: 0 5px;
   border-radius: 9px;
-  background: var(--beterraba);
+  background: var(--folha);
   color: #fff;
   font-size: 11px;
   font-weight: 700;
@@ -459,23 +458,21 @@ input.short {
 
 .hero {
   display: grid;
-  grid-template-columns: 1fr 380px;
+  grid-template-columns: 1fr 360px;
   align-items: end;
   gap: 40px;
-  margin-bottom: 32px;
+  margin-bottom: 36px;
 }
 
 .hero h1 {
-  font-size: 50px;
-  line-height: 0.95;
-  font-stretch: 82%;
-  letter-spacing: -0.015em;
+  font-size: 40px;
+  line-height: 1.05;
 }
 
 .hero p {
-  margin-top: 14px;
+  margin-top: 12px;
   max-width: 54ch;
-  font-size: 17px;
+  font-size: 16px;
   color: var(--tinta-2);
 }
 
@@ -494,9 +491,8 @@ input.short {
 
 .search input {
   width: 100%;
-  min-height: 46px;
+  min-height: 44px;
   padding-left: 42px;
-  border-color: var(--tinta);
   border-radius: 6px;
   font-size: 15px;
 }
@@ -510,9 +506,10 @@ input.short {
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  padding: 18px 0;
-  margin-bottom: 36px;
-  border-top: 1px solid var(--risco);
+  padding: 16px 0;
+  margin-bottom: 40px;
+  border-top: 1px solid var(--lona-3);
+  border-bottom: 1px solid var(--lona-3);
 }
 
 .chips {
@@ -525,18 +522,23 @@ input.short {
   display: inline-flex;
   align-items: baseline;
   gap: 7px;
-  min-height: 36px;
-  padding: 7px 15px;
-  border: 1px solid var(--risco);
+  min-height: 34px;
+  padding: 6px 14px;
+  border: 1px solid transparent;
   border-radius: 999px;
   background: transparent;
+  color: var(--tinta-2);
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
 }
 
 .chip:hover {
-  border-color: var(--tinta);
+  color: var(--tinta);
+}
+
+.demo .chip {
+  border-color: var(--risco);
 }
 
 .chip em {
@@ -548,19 +550,15 @@ input.short {
 }
 
 .chip.active {
-  border-color: var(--tinta);
-  background: var(--tinta);
-  color: var(--lona);
-}
-
-.chip.active em {
-  color: #b9c1b4;
+  border-color: var(--risco);
+  background: var(--lona-2);
+  color: var(--tinta);
 }
 
 .grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 52px 32px;
+  gap: 56px 28px;
 }
 
 .card {
@@ -569,151 +567,34 @@ input.short {
   min-width: 0;
 }
 
-.stall {
-  position: relative;
+.tile {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 4px;
+  object-fit: contain;
+  background: var(--vitrine);
 }
 
-.tile {
+.tile-empty {
   display: grid;
   place-items: center;
-  width: 100%;
-  aspect-ratio: 5 / 4;
-  border-radius: 3px;
-  object-fit: cover;
-  background: var(--lona-3);
-}
-
-.tile span {
-  line-height: 1;
-  font-family: var(--titulo);
-  font-size: 64px;
-  font-weight: 800;
-  font-stretch: 80%;
-  letter-spacing: -0.02em;
-  color: rgba(248, 249, 244, 0.92);
+  color: var(--risco);
 }
 
 .tile-sm {
-  width: 52px;
-  height: 52px;
+  width: 56px;
+  height: 56px;
   aspect-ratio: auto;
   flex: none;
   border-radius: 3px;
-}
-
-.tile-sm span {
-  font-size: 19px;
-  letter-spacing: 0;
-}
-
-/* Etiqueta de preço pendurada no barbante */
-
-.tag {
-  --tilt: -6deg;
-  position: absolute;
-  top: -14px;
-  right: 18px;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  pointer-events: none;
-  filter: drop-shadow(0 3px 2px rgba(60, 45, 20, 0.28));
-}
-
-.card:nth-child(4n + 2) .tag {
-  --tilt: 4deg;
-}
-
-.card:nth-child(4n + 3) .tag {
-  --tilt: -3deg;
-}
-
-.card:nth-child(4n) .tag {
-  --tilt: 7deg;
-}
-
-.tag::before {
-  content: '';
-  position: relative;
-  z-index: 1;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 35%, #b8a98a, var(--barbante) 60%, #5e523c);
-}
-
-.tag-string {
-  width: 2px;
-  height: 30px;
-  margin-top: -3px;
-  background: repeating-linear-gradient(180deg, #9c8b69 0 3px, #7a6b4f 3px 5px);
-}
-
-.tag-body {
-  display: flex;
-  align-items: baseline;
-  gap: 3px;
-  margin-top: -12px;
-  padding: 22px 13px 9px;
-  background: var(--palha);
-  color: var(--tinta);
-  clip-path: polygon(26% 0, 74% 0, 100% 15px, 100% 100%, 0 100%, 0 15px);
-  -webkit-mask: radial-gradient(circle at 50% 10px, transparent 4px, #000 4.7px);
-  mask: radial-gradient(circle at 50% 10px, transparent 4px, #000 4.7px);
-  transform: rotate(var(--tilt));
-  transform-origin: 50% 10px;
-  font-family: var(--titulo);
-  white-space: nowrap;
-}
-
-.tag-body small {
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.tag-body strong {
-  font-size: 23px;
-  font-weight: 800;
-  font-stretch: 85%;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-}
-
-.tag.tag-out .tag-body {
-  background: #d9d2c1;
-  color: #5d574b;
-}
-
-.tag.tag-out strong {
-  text-decoration: line-through 2px var(--beterraba);
-}
-
-.tag.swing .tag-body {
-  animation: swing 0.9s cubic-bezier(0.3, 0.6, 0.4, 1);
-}
-
-@keyframes swing {
-  0% {
-    transform: rotate(var(--tilt));
-  }
-  22% {
-    transform: rotate(calc(var(--tilt) + 16deg));
-  }
-  45% {
-    transform: rotate(calc(var(--tilt) - 10deg));
-  }
-  68% {
-    transform: rotate(calc(var(--tilt) + 5deg));
-  }
-  100% {
-    transform: rotate(var(--tilt));
-  }
+  object-fit: cover;
+  object-view-box: inset(14% 18% 6%);
 }
 
 .card-body {
   flex: 1;
-  padding: 16px 0 14px;
+  padding: 18px 0 0;
 }
 
 .card-meta {
@@ -725,8 +606,8 @@ input.short {
 }
 
 .card-meta .cat {
-  font-weight: 700;
-  color: var(--folha);
+  font-weight: 600;
+  color: var(--tinta);
 }
 
 .card-meta .sku {
@@ -736,29 +617,71 @@ input.short {
 }
 
 .card-body h3 {
-  font-size: 19px;
-  font-weight: 700;
-  font-stretch: 92%;
-  line-height: 1.15;
+  font-family: var(--texto);
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.3;
 }
 
 .card-body p {
-  margin-top: 6px;
-  font-size: 15px;
+  display: -webkit-box;
+  margin-top: 4px;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: 14px;
   color: var(--tinta-2);
 }
 
 .card-foot {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--risco);
+  padding-top: 14px;
+}
+
+.price-block {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.price {
+  font-family: var(--titulo);
+  font-size: 21px;
+  font-weight: 650;
+  font-stretch: 94%;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.price.out {
+  color: var(--tinta-2);
+  text-decoration: line-through 1px;
+}
+
+.btn.add {
+  min-height: 34px;
+  padding: 0 12px;
+  border-color: var(--risco);
+  font-size: 14px;
+  gap: 6px;
+}
+
+.btn.add:hover:not(:disabled) {
+  border-color: var(--folha);
+  color: var(--folha-escura);
+}
+
+.btn.add:disabled {
+  border-color: var(--lona-3);
+  background: transparent;
 }
 
 .stock {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--tinta-2);
   font-variant-numeric: tabular-nums;
 }
@@ -814,13 +737,11 @@ input.short {
   gap: 12px;
   padding-bottom: 16px;
   margin-bottom: 8px;
-  border-bottom: 2px solid var(--tinta);
+  border-bottom: 1px solid var(--risco);
 }
 
 .panel > header h2 {
-  font-size: 28px;
-  font-weight: 800;
-  font-stretch: 85%;
+  font-size: 26px;
 }
 
 .panel footer {
@@ -834,15 +755,15 @@ input.short {
   justify-content: space-between;
   padding-top: 14px;
   margin-bottom: 14px;
-  border-top: 2px solid var(--tinta);
+  border-top: 1px solid var(--tinta);
   font-weight: 600;
 }
 
 .total strong {
   font-family: var(--titulo);
-  font-size: 28px;
-  font-weight: 800;
-  font-stretch: 85%;
+  font-size: 24px;
+  font-weight: 650;
+  font-stretch: 94%;
   font-variant-numeric: tabular-nums;
 }
 
@@ -855,7 +776,7 @@ input.short {
 
 .lines li {
   display: grid;
-  grid-template-columns: 52px 1fr auto;
+  grid-template-columns: 56px 1fr auto;
   align-items: start;
   gap: 14px;
   padding: 16px 0;
@@ -946,6 +867,29 @@ input.short {
   align-items: baseline;
 }
 
+.summary {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
+}
+
+.summary li {
+  display: grid;
+  grid-template-columns: 36px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.summary .tile-sm {
+  width: 36px;
+  height: 36px;
+}
+
 .checkout .segmented {
   align-self: flex-start;
 }
@@ -996,8 +940,8 @@ input.short {
 }
 
 .page h1 {
-  font-size: 44px;
-  line-height: 1;
+  font-size: 40px;
+  line-height: 1.05;
 }
 
 .orders {
@@ -1006,8 +950,8 @@ input.short {
 }
 
 .order {
-  padding: 22px 0 30px;
-  border-top: 2px solid var(--tinta);
+  padding: 26px 0 34px;
+  border-top: 1px solid var(--risco);
 }
 
 .order > header {
@@ -1019,9 +963,7 @@ input.short {
 }
 
 .order > header h3 {
-  font-size: 24px;
-  font-weight: 800;
-  font-stretch: 88%;
+  font-size: 22px;
 }
 
 .order-meta {
@@ -1051,33 +993,31 @@ input.short {
 
 .order-items li {
   display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: baseline;
-  gap: 8px;
-  padding: 3px 0;
+  grid-template-columns: 40px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 0;
 }
 
-.order-items .leader {
-  border-bottom: 2px dotted var(--risco);
-  transform: translateY(-4px);
+.order-items .tile-sm {
+  width: 40px;
+  height: 40px;
 }
 
 .order-items li.sum {
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
   margin-top: 8px;
   padding-top: 10px;
   border-top: 1px solid var(--risco);
   font-weight: 600;
 }
 
-.order-items li.sum .leader {
-  border: 0;
-}
-
 .order-items li.sum strong {
   font-family: var(--titulo);
-  font-size: 22px;
-  font-weight: 800;
-  font-stretch: 88%;
+  font-size: 20px;
+  font-weight: 650;
+  font-stretch: 94%;
 }
 
 .timeline {
@@ -1202,9 +1142,8 @@ input.short {
 
 .login-card h1 {
   margin-top: 10px;
-  font-size: 50px;
-  line-height: 0.95;
-  font-stretch: 82%;
+  font-size: 40px;
+  line-height: 1.05;
 }
 
 .login-card > p {
@@ -1259,7 +1198,7 @@ table {
 
 th {
   padding: 10px 12px;
-  border-bottom: 2px solid var(--tinta);
+  border-bottom: 1px solid var(--tinta);
   text-align: left;
   font-size: 14px;
   font-weight: 700;
@@ -1384,15 +1323,13 @@ td.actions .btn + .btn {
     gap: 22px;
   }
   .hero h1,
-  .login-card h1 {
-    font-size: 42px;
-  }
+  .login-card h1,
   .page h1 {
-    font-size: 36px;
+    font-size: 32px;
   }
   .grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 44px 20px;
+    gap: 40px 20px;
   }
   .toolbar {
     flex-direction: column;

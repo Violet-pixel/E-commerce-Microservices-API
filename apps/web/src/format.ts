@@ -33,15 +33,3 @@ export const decodeClaims = (token: string): { sub: string; role?: string; name?
     return null;
   }
 };
-
-const TILE_TONES = ['#2b3540', '#5e7350', '#a65a6a', '#4a5a6b', '#8395a7', '#b0a08c'];
-
-export const tileTone = (sku: string) => TILE_TONES[[...sku].reduce((n, c) => n + c.charCodeAt(0), 0) % TILE_TONES.length] ?? '#2b3540';
-
-export const initials = (name: string) =>
-  name
-    .split(/\s+/)
-    .filter((w) => w.length > 2)
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase())
-    .join('');

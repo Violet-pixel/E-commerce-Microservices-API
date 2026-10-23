@@ -1,21 +1,32 @@
-import type { ReactNode } from 'react';
-import type { OrderStatus } from '@cesto/contracts';
-import { STATUS_LABEL, STATUS_TONE, initials } from '../format';
+import { useState, type ReactNode } from 'react';
+import { Package } from 'lucide-react';
+import { DEMO_PRODUCTS, type OrderStatus } from '@cesto/contracts';
+import { STATUS_LABEL, STATUS_TONE } from '../format';
 
-// Cores de hortifrúti para os produtos sem foto: couve, beterraba, abóbora, berinjela, chuchu, batata-doce.
-const PRODUCE = ['#3b7a4c', '#8c2b4b', '#b9772f', '#5a3f5e', '#6e7f3a', '#9a5b3c'];
-const produceTone = (sku: string) => PRODUCE[[...sku].reduce((n, c) => n + c.charCodeAt(0), 0) % PRODUCE.length] ?? '#3b7a4c';
+// Ilustração padrão de cada produto do catálogo de demonstração: public/produtos/<slug>.svg.
+// Itens de carrinho e de pedido não trazem o slug, então ele é achado pelo SKU ou pelo id.
+const DEMO_SLUG = new Map<string, string>(DEMO_PRODUCTS.flatMap((p) => [[p.sku, p.slug] as const, [p.id, p.slug] as const]));
+
+export const productImage = ({ imageUrl, slug, sku, productId }: { imageUrl?: string | null; slug?: string; sku?: string; productId?: string }) => {
+  if (imageUrl) return imageUrl;
+  const key = slug ?? DEMO_SLUG.get(sku ?? '') ?? DEMO_SLUG.get(productId ?? '');
+  return key ? `/produtos/${key}.svg` : null;
+};
 
 export const StatusPill = ({ status }: { status: OrderStatus }) => <span className={`pill pill-${STATUS_TONE[status]}`}>{STATUS_LABEL[status]}</span>;
 
-export const ProductTile = ({ sku, name, imageUrl, small = false }: { sku: string; name: string; imageUrl: string | null; small?: boolean }) =>
-  imageUrl ? (
-    <img className={small ? 'tile tile-sm' : 'tile'} src={imageUrl} alt="" loading="lazy" />
-  ) : (
-    <div className={small ? 'tile tile-sm' : 'tile'} style={{ background: produceTone(sku) }} aria-hidden="true">
-      <span>{initials(name)}</span>
-    </div>
-  );
+export const ProductTile = ({ src, small = false }: { src: string | null; small?: boolean }) => {
+  const [broken, setBroken] = useState<string | null>(null);
+  const className = small ? 'tile tile-sm' : 'tile';
+  if (!src || broken === src) {
+    return (
+      <div className={`${className} tile-empty`} aria-hidden="true">
+        <Package size={small ? 18 : 32} strokeWidth={1.25} />
+      </div>
+    );
+  }
+  return <img className={className} src={src} alt="" loading="lazy" onError={() => setBroken(src)} />;
+};
 
 export const Empty = ({ title, children }: { title: string; children?: ReactNode }) => (
   <div className="empty">
@@ -31,16 +42,3 @@ export const Field = ({ label, children, hint }: { label: string; children: Reac
     {hint ? <small>{hint}</small> : null}
   </label>
 );
-
-export const PriceTag = ({ label, out = false, swing = false }: { label: string; out?: boolean; swing?: boolean }) => {
-  const [currency, ...rest] = label.split(/\s/);
-  return (
-    <span className={`tag${out ? ' tag-out' : ''}${swing ? ' swing' : ''}`}>
-      <span className="tag-string" aria-hidden="true" />
-      <span className="tag-body">
-        {rest.length ? <small>{currency}</small> : null}
-        <strong>{rest.length ? rest.join(' ') : label}</strong>
-      </span>
-    </span>
-  );
-};

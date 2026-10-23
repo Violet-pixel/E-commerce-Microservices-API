@@ -3,7 +3,7 @@ import type { OrderDto, OrderStatus } from '@cesto/contracts';
 import { api, errorMessage, request } from '../api';
 import { useAsync, useInterval } from '../hooks';
 import { FINAL, STATUS_LABEL, dateTime, money } from '../format';
-import { Empty, StatusPill } from '../components/ui';
+import { Empty, ProductTile, StatusPill, productImage } from '../components/ui';
 
 const PAYMENT_LABEL: Record<string, string> = { pix: 'Pix', card: 'Cartão', boleto: 'Boleto' };
 
@@ -26,16 +26,15 @@ export const OrderCard = ({ order, actions }: { order: OrderDto; actions?: React
       <ul className="order-items">
         {order.items.map((i) => (
           <li key={i.productId}>
+            <ProductTile src={productImage({ productId: i.productId })} small />
             <span>
               {i.quantity}× {i.name}
             </span>
-            <i className="leader" aria-hidden="true" />
             <span>{money(i.subtotalCents, order.currency)}</span>
           </li>
         ))}
         <li className="sum">
           <span>Total</span>
-          <i className="leader" aria-hidden="true" />
           <strong>{money(order.totalCents, order.currency)}</strong>
         </li>
       </ul>

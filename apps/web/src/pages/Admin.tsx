@@ -3,7 +3,7 @@ import type { CreateProductBody, ProductDto } from '@cesto/contracts';
 import { api, errorMessage, request } from '../api';
 import { useAsync, useInterval } from '../hooks';
 import { money } from '../format';
-import { Field, ProductTile } from '../components/ui';
+import { Field, ProductTile, productImage } from '../components/ui';
 import { OrderCard } from './Orders';
 
 type Tab = 'orders' | 'products';
@@ -34,7 +34,7 @@ const ProductRow = ({ product, stock, onSaved, notify }: { product: ProductDto; 
     <tr className={product.active ? '' : 'inactive'}>
       <td>
         <div className="row">
-          <ProductTile sku={product.sku} name={product.name} imageUrl={product.imageUrl} small />
+          <ProductTile src={productImage(product)} small />
           <div>
             <strong>{product.name}</strong>
             <span className="muted small">{product.sku}</span>
