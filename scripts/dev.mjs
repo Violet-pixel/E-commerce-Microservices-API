@@ -42,7 +42,7 @@ const children = [];
 
 const start = (service, index) => {
   const cwd = resolve(root, 'services', service.name);
-  const args = mode === 'built' ? ['dist/main.js'] : [resolve(root, 'node_modules/tsx/dist/cli.mjs'), 'watch', 'src/main.ts'];
+  const args = mode === 'built' ? ['src/main.js'] : ['--watch', 'src/main.js'];
   const child = spawn(process.execPath, args, {
     cwd,
     env: { ...env, ...shared, PORT: String(service.port), ...(service.db ? { DATABASE_URL: db(service.name) } : {}) },

@@ -1,0 +1,162 @@
+/* Cesto: estilo dos manuais em PDF (A4). Fontes vêm da interface web. */
+@font-face { font-family: 'Literata'; src: url('../../apps/web/public/fonts/literata-latin-wght-normal.woff2') format('woff2'); font-weight: 200 900; font-style: normal; }
+@font-face { font-family: 'Literata'; src: url('../../apps/web/public/fonts/literata-latin-ext-wght-normal.woff2') format('woff2'); font-weight: 200 900; font-style: normal; unicode-range: U+0100-024F, U+1E00-1EFF, U+20A0-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: 'Literata'; src: url('../../apps/web/public/fonts/literata-latin-wght-italic.woff2') format('woff2'); font-weight: 200 900; font-style: italic; }
+@font-face { font-family: 'Public Sans'; src: url('../../apps/web/public/fonts/public-sans-latin-wght-normal.woff2') format('woff2'); font-weight: 100 900; font-style: normal; }
+@font-face { font-family: 'Public Sans'; src: url('../../apps/web/public/fonts/public-sans-latin-ext-wght-normal.woff2') format('woff2'); font-weight: 100 900; font-style: normal; unicode-range: U+0100-024F, U+1E00-1EFF, U+20A0-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: 'IBM Plex Mono'; src: url('../../apps/web/public/fonts/ibm-plex-mono-latin-400-normal.woff2') format('woff2'); font-weight: 400; }
+@font-face { font-family: 'IBM Plex Mono'; src: url('../../apps/web/public/fonts/ibm-plex-mono-latin-500-normal.woff2') format('woff2'); font-weight: 500; }
+@font-face { font-family: 'IBM Plex Mono'; src: url('../../apps/web/public/fonts/ibm-plex-mono-latin-600-normal.woff2') format('woff2'); font-weight: 600 700; }
+@font-face { font-family: 'IBM Plex Mono'; src: url('../../apps/web/public/fonts/ibm-plex-mono-latin-ext-400-normal.woff2') format('woff2'); font-weight: 400; unicode-range: U+0100-024F, U+1E00-1EFF, U+2190-21FF, U+2265; }
+
+:root {
+  --papel: #F4EFE6;
+  --papel-claro: #FAF7F1;
+  --regua: #DDD5C5;
+  --tinta: #1F201C;
+  --tinta-2: #5B574E;
+  --folha: #2E5E43;
+  --palha: #C99A3E;
+  --palha-escura: #7A5410;
+  --palha-fundo: #F3E7CB;
+  --beterraba: #9E2F4C;
+  --serifa: 'Literata', Georgia, serif;
+  --texto: 'Public Sans', Arial, sans-serif;
+  --mono: 'IBM Plex Mono', Menlo, monospace;
+}
+
+@page {
+  size: A4;
+  margin: 24mm 21mm 22mm 21mm;
+  @top-left { content: 'Cesto'; font: 600 8pt var(--serifa); font-family: 'Literata', serif; color: #1F201C; vertical-align: bottom; padding-bottom: 6mm; }
+  @top-right { content: string(rodape); font: 400 7.5pt 'Public Sans', sans-serif; color: #5B574E; vertical-align: bottom; padding-bottom: 6mm; }
+  @bottom-right { content: counter(page); font: 500 8pt 'IBM Plex Mono', monospace; color: #1F201C; vertical-align: top; padding-top: 7mm; }
+  @bottom-left { content: 'Copyright (©) 2026 Clara A. Portes · Licença MIT'; font: 400 7pt 'Public Sans', sans-serif; color: #8A8478; vertical-align: top; padding-top: 7.4mm; }
+}
+@page capa {
+  margin: 0;
+  @top-left { content: none; } @top-right { content: none; } @bottom-right { content: none; } @bottom-left { content: none; }
+}
+
+* { box-sizing: border-box; }
+html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body {
+  margin: 0; background: #fff; color: var(--tinta);
+  font-family: var(--texto); font-size: 9.4pt; line-height: 1.52;
+  font-feature-settings: 'kern', 'liga'; hyphens: manual;
+}
+.titulo-corrente { string-set: rodape content(); display: none; }
+
+/* Capa */
+.capa { page: capa; width: 210mm; height: 297mm; position: relative; padding: 26mm 24mm 22mm; display: flex; flex-direction: column; break-after: page; }
+.capa .logo { width: 22mm; height: 22mm; }
+.capa .faixa { position: absolute; left: 0; right: 0; top: 0; height: 6mm; background: var(--folha); }
+.capa .bloco { margin-top: auto; }
+.capa .sobretitulo { font: 500 8.5pt var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--palha-escura); margin: 0 0 6mm; }
+.capa h1 { font: 600 64pt/0.95 var(--serifa); letter-spacing: -0.02em; margin: 0; color: var(--tinta); }
+.capa .sub { font: 400 italic 21pt/1.2 var(--serifa); color: var(--folha); margin: 4mm 0 9mm; }
+.capa .resumo { max-width: 125mm; font-size: 10.5pt; line-height: 1.55; color: var(--tinta-2); margin: 0; }
+.capa .pe { margin-top: 18mm; border-top: 0.8pt solid var(--tinta); padding-top: 4mm; display: flex; justify-content: space-between; font-size: 8.5pt; color: var(--tinta-2); }
+.capa .pe strong { color: var(--tinta); font-weight: 600; }
+.capa .pe .dir { text-align: right; }
+
+/* Sumário */
+.sumario { break-after: page; }
+.sumario h2.cab { font: 600 26pt/1.1 var(--serifa); margin: 0 0 8mm; padding: 0; border: 0; }
+.sumario h2.cab { background: none; padding: 0; }
+.sumario ol { list-style: none; padding: 0; margin: 0; }
+.sumario > ol > li { break-inside: avoid; margin: 0 0 3.2mm; }
+.sumario a { color: inherit; text-decoration: none; display: flex; align-items: baseline; gap: 2mm; }
+.sumario .cap > a { font: 600 11.5pt var(--serifa); border-top: 0.6pt solid var(--regua); padding-top: 2.4mm; }
+.sumario .cap > a .n { color: var(--folha); width: 9mm; flex: none; }
+.sumario .sec a { font-size: 9pt; color: var(--tinta-2); padding: 0.6mm 0 0.6mm 11mm; }
+.sumario .t { flex: none; max-width: 85%; }
+.sumario .pontos { flex: 1; border-bottom: 0.6pt dotted #B9B1A2; transform: translateY(-1mm); }
+.sumario .pg { flex: none; font: 500 8.5pt var(--mono); color: var(--tinta); min-width: 6mm; text-align: right; }
+
+/* Capítulos */
+.capitulo { break-before: page; }
+.abertura { margin: 4mm 0 9mm; padding-top: 5mm; border-top: 2.2pt solid var(--folha); display: grid; grid-template-columns: 22mm 1fr; column-gap: 4mm; break-after: avoid; }
+.abertura .num { font: 500 40pt/1 var(--serifa); color: var(--folha); }
+.abertura h1 { font: 600 27pt/1.1 var(--serifa); margin: 0; letter-spacing: -0.01em; }
+.abertura p { grid-column: 2; margin: 2.5mm 0 0; font: italic 400 11pt/1.45 var(--serifa); color: var(--tinta-2); max-width: 130mm; }
+
+h2 { font: 600 14pt/1.25 var(--serifa); margin: 8mm 0 2.6mm; padding-top: 3mm; break-after: avoid; break-inside: avoid; color: var(--tinta); background: linear-gradient(var(--folha), var(--folha)) no-repeat 0 0 / 12mm 1.4pt; }
+h3 { font: 600 italic 10.8pt/1.3 var(--serifa); margin: 5mm 0 1.6mm; break-after: avoid; color: var(--tinta); }
+p { margin: 0 0 2.6mm; orphans: 3; widows: 3; }
+a { color: var(--folha); text-decoration: none; }
+strong { font-weight: 650; }
+ul, ol.passos { margin: 0 0 3mm; padding: 0; }
+ul { list-style: none; }
+ul > li { position: relative; padding-left: 5mm; margin-bottom: 1.2mm; }
+ul > li::before { content: ''; position: absolute; left: 0.6mm; top: 0.62em; width: 2.2mm; height: 0.9pt; background: var(--folha); }
+
+code, .mono { font-family: var(--mono); font-size: 0.88em; font-weight: 450; }
+p code, li code, td code, .nota code { background: var(--papel-claro); border: 0.5pt solid #E8E1D3; padding: 0 0.7mm; border-radius: 0.6mm; white-space: nowrap; }
+td code.quebra, li code.quebra, p code.quebra { white-space: normal; word-break: break-all; }
+pre { font: 400 7.9pt/1.5 var(--mono); background: var(--papel); border-left: 2pt solid var(--folha); padding: 3mm 3.6mm; margin: 1.5mm 0 3.6mm; white-space: pre-wrap; word-break: break-word; break-inside: avoid; color: var(--tinta); }
+pre .c { color: #7E786C; }
+pre .k { color: var(--folha); font-weight: 500; }
+pre .s { color: var(--palha-escura); }
+
+/* Passos numerados */
+ol.passos { list-style: none; counter-reset: passo; margin: 1mm 0 3.6mm; }
+ol.passos > li { counter-increment: passo; position: relative; padding: 0 0 0 9mm; margin-bottom: 2mm; break-inside: avoid; }
+ol.passos > li::before { content: counter(passo); position: absolute; left: 0; top: -0.3mm; font: 600 12pt/1.2 var(--serifa); color: var(--folha); width: 6mm; border-bottom: 0.8pt solid var(--folha); }
+
+/* Tabelas */
+table { width: 100%; border-collapse: collapse; margin: 1.6mm 0 4mm; font-size: 8.4pt; line-height: 1.4; }
+thead { display: table-header-group; }
+tr { break-inside: avoid; }
+th { text-align: left; font: 600 7.4pt var(--texto); letter-spacing: .04em; text-transform: uppercase; color: var(--tinta-2); background: var(--papel); padding: 1.8mm 2mm; border-top: 0.9pt solid var(--tinta); border-bottom: 0.6pt solid var(--tinta); }
+td { padding: 1.6mm 2mm; border-bottom: 0.5pt solid var(--regua); vertical-align: top; }
+td.m, th.m { font-family: var(--mono); font-size: 7.7pt; }
+td.n { white-space: nowrap; }
+td .pk { font: 600 6.5pt var(--mono); color: var(--palha-escura); background: var(--palha-fundo); padding: 0.2mm 0.8mm; margin-left: 1mm; letter-spacing: .04em; }
+td.sem { color: #8A8478; }
+.amostra { display: inline-block; width: 4mm; height: 4mm; border: 0.5pt solid rgba(0,0,0,.2); vertical-align: -0.8mm; margin-right: 1.5mm; }
+
+/* Notas */
+.nota { background: var(--papel); border-left: 2pt solid var(--palha); padding: 2.6mm 3.6mm; margin: 2mm 0 4mm; break-inside: avoid; font-size: 8.9pt; }
+.nota.perigo { border-left-color: var(--beterraba); background: #F7ECEE; }
+.nota.verde { border-left-color: var(--folha); }
+.nota p:last-child { margin-bottom: 0; }
+.nota .rot { font: 600 7pt var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--palha-escura); display: block; margin-bottom: 0.8mm; }
+.nota.perigo .rot { color: var(--beterraba); }
+.nota.verde .rot { color: var(--folha); }
+.tag { font: 600 6.6pt var(--mono); text-transform: uppercase; letter-spacing: .06em; color: var(--palha-escura); background: var(--palha-fundo); padding: 0.3mm 1.2mm; vertical-align: 0.4mm; margin-left: 1.2mm; white-space: nowrap; }
+.tag.verde { color: var(--folha); background: #E3ECE5; }
+kbd { font: 500 7.6pt var(--mono); border: 0.6pt solid var(--tinta-2); border-bottom-width: 1.2pt; padding: 0 1mm; border-radius: 0.8mm; background: #fff; }
+
+/* Figuras */
+figure { margin: 2mm 0 5mm; break-inside: avoid; }
+figure img { display: block; max-width: 100%; max-height: 100mm; margin: 0 auto; border: 0.6pt solid var(--regua); }
+figure.alta img { max-height: 150mm; }
+figure.baixa img { max-height: 88mm; }
+figcaption { font: italic 400 8.4pt/1.4 var(--serifa); color: var(--tinta-2); margin-top: 1.8mm; padding-left: 0; }
+figcaption b { font: 600 7pt var(--mono); font-style: normal; color: var(--folha); letter-spacing: .05em; margin-right: 1.5mm; text-transform: uppercase; }
+.lado { display: grid; grid-template-columns: 1fr 1fr; gap: 5mm; break-inside: avoid; }
+.lado figure { margin-bottom: 3mm; }
+
+/* Diagramas */
+.diagrama { margin: 2mm 0 4mm; break-inside: avoid; }
+.diagrama svg { display: block; width: 100%; height: auto; }
+.legenda { font: italic 400 8.4pt/1.4 var(--serifa); color: var(--tinta-2); margin-top: 1.5mm; }
+
+/* Diagramas de tabelas (banco) */
+.er { display: flex; flex-wrap: wrap; gap: 4mm; align-items: flex-start; margin: 1mm 0 5mm; break-inside: avoid; }
+.ent { border: 0.8pt solid var(--tinta); width: 50mm; background: #fff; break-inside: avoid; }
+.ent.larga { width: 56mm; }
+.ent .cab { background: var(--tinta); color: var(--papel); font: 600 7.6pt var(--mono); padding: 1.1mm 2mm; }
+.ent .lin { display: flex; justify-content: space-between; gap: 2mm; font: 400 6.9pt/1.35 var(--mono); padding: 0.55mm 2mm; border-bottom: 0.4pt solid #ECE6DA; }
+.ent .lin:last-child { border-bottom: 0; }
+.ent .lin span:last-child { color: var(--tinta-2); text-align: right; }
+.ent .lin.pk span:first-child { font-weight: 600; }
+.ent .lin.pk span:last-child { color: var(--palha-escura); }
+.ent .lin.fk span:last-child { color: var(--folha); }
+.er .grupo { border: 0.6pt dashed #A39B8B; padding: 3mm; display: flex; flex-wrap: wrap; gap: 4mm; position: relative; }
+.er .grupo .nome { position: absolute; top: -2.2mm; left: 3mm; background: #fff; padding: 0 1.5mm; font: 600 7pt var(--mono); color: var(--tinta-2); }
+
+.evita-quebra { break-inside: avoid; }
+.quebra-antes { break-before: page; }
+.dois-col { columns: 2; column-gap: 7mm; }

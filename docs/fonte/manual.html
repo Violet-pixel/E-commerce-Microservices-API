@@ -1,0 +1,678 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Cesto: manual técnico</title>
+<link rel="stylesheet" href="estilo.css">
+<style>@page { @top-right { content: 'Manual técnico, versão 1.2.0'; } }</style>
+</head>
+<body>
+
+<section class="capa">
+  <div class="faixa"></div>
+  <img class="logo" src="../images/logo.svg" alt="Cesto">
+  <div class="bloco">
+    <p class="sobretitulo">Documentação · versão 1.2.0</p>
+    <h1>Cesto</h1>
+    <p class="sub">Manual técnico do projeto</p>
+    <p class="resumo">API de e-commerce em microsserviços com JavaScript e Node.js. Este manual cobre a instalação, cada tela da loja, a arquitetura, o OAuth2, os contratos, a API, a configuração, como estender o projeto, os testes e a solução de problemas.</p>
+    <div class="pe">
+      <div>Copyright (©) 2026 Clara A. Portes<br>Licença MIT</div>
+      <div class="dir"><strong>Versão 1.2.0</strong><br>Outubro de 2026</div>
+    </div>
+  </div>
+</section>
+
+<nav class="sumario">
+  <h2 class="cab">Sumário</h2>
+  <ol id="lista-sumario"></ol>
+</nav>
+
+<!-- 1 -->
+<section class="capitulo">
+  <header class="abertura"><span class="num">1</span><h1>Visão geral</h1><p>O que é o Cesto, o que ele cobre e com que tecnologias foi feito.</p></header>
+
+  <h2>Para que serve</h2>
+  <p>O Cesto é uma API de e-commerce dividida em microsserviços e escrita em JavaScript (módulos ES, Node.js 22.18 ou mais novo). Ela cobre o caminho inteiro de uma loja: catálogo, estoque, carrinho, pedido, pagamento e notificações. Junto vem uma interface web em React que usa a mesma API que qualquer outro cliente usaria.</p>
+  <p>O projeto tem três usos: base para uma loja real, referência de arquitetura (eventos, saga, outbox, OAuth2, contratos com Zod) e material de estudo. Tudo sobe com um comando e já vem com dados de demonstração.</p>
+
+  <h2>O que o Cesto faz</h2>
+  <ul>
+    <li>Oito serviços independentes, cada um com processo e banco próprios.</li>
+    <li>Pedido como saga: reserva de estoque, cobrança e confirmação. Se uma etapa falha, as anteriores são desfeitas automaticamente.</li>
+    <li>Eventos em Redis Streams com outbox transacional, deduplicação, novas tentativas e fila de dead-letter.</li>
+    <li>OAuth2: Authorization Code com PKCE, Client Credentials, JWT RS256, JWKS e refresh token com rotação e detecção de reuso.</li>
+    <li>Contratos com Zod. O mesmo contrato valida a entrada e a saída, gera o OpenAPI e alimenta o cliente HTTP.</li>
+    <li>Erros de domínio mapeados para HTTP num só lugar.</li>
+    <li>Loja web com catálogo filtrável, produtos guardados, carrinho, checkout em etapas, pedidos com a trilha da saga, notificações, painel administrativo e uma página com a saúde dos serviços.</li>
+  </ul>
+
+  <h2>Tecnologias</h2>
+  <table>
+    <thead><tr><th style="width:20%">Camada</th><th style="width:40%">Tecnologia</th><th>Papel</th></tr></thead>
+    <tbody>
+      <tr><td>Linguagem</td><td>JavaScript (módulos ES), com JSDoc leve</td><td>Todo o back-end, os contratos e a interface, sem etapa de compilação</td></tr>
+      <tr><td>Execução</td><td>Node.js 22.18 ou mais novo</td><td>Cada serviço roda o próprio <code>src/main.js</code> direto; o cliente Prisma gerado é carregado com a remoção de tipos nativa do Node</td></tr>
+      <tr><td>HTTP</td><td>Fastify 5, @fastify/http-proxy, @fastify/rate-limit</td><td>Serviços, gateway e limite de requisições</td></tr>
+      <tr><td>Validação</td><td>Zod 4</td><td>Entrada, saída, eventos e configuração</td></tr>
+      <tr><td>Persistência</td><td>Prisma 7 + PostgreSQL 16 (adapter pg)</td><td>Um banco por serviço, migrações versionadas</td></tr>
+      <tr><td>Mensageria</td><td>Redis 7 Streams + ioredis</td><td>Eventos, carrinho e rate limit</td></tr>
+      <tr><td>Segurança</td><td>jose (JWT RS256, JWKS), scrypt</td><td>Tokens e senhas</td></tr>
+      <tr><td>Interface</td><td>React 19 (JSX), Vite 7, Lucide; Literata, Public Sans e IBM Plex Mono</td><td>Loja, painel e página de serviços</td></tr>
+      <tr><td>Infraestrutura</td><td>Docker Compose, Nginx</td><td>Execução local e em servidor</td></tr>
+      <tr><td>Qualidade</td><td>Vitest, teste ponta a ponta, GitHub Actions</td><td>Testes e integração contínua</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Identidade visual</h2>
+  <p>A marca é um cesto montado com blocos: os serviços independentes formando uma loja. A logo é preta e branca, com cantos retos. A interface e este manual seguem a ideia de um catálogo impresso: papel claro, tinta escura, títulos com serifa e pouca cor. A cor fica para o que precisa chamar a atenção: a ação principal, um status, um erro.</p>
+  <table>
+    <thead><tr><th style="width:22%">Cor</th><th style="width:18%">Hex</th><th>Uso</th></tr></thead>
+    <tbody>
+      <tr><td><span class="amostra" style="background:#F4EFE6"></span>Papel</td><td class="m">#F4EFE6</td><td>Fundo da interface, quadros e tabelas</td></tr>
+      <tr><td><span class="amostra" style="background:#1F201C"></span>Tinta</td><td class="m">#1F201C / #5B574E</td><td>Texto principal e secundário, títulos, preços</td></tr>
+      <tr><td><span class="amostra" style="background:#2E5E43"></span>Folha</td><td class="m">#2E5E43</td><td>Ação primária, links, réguas dos títulos, pedido confirmado</td></tr>
+      <tr><td><span class="amostra" style="background:#C99A3E"></span>Palha</td><td class="m">#C99A3E / #7A5410</td><td>Etiquetas e destaques: aguardando pagamento, estoque baixo</td></tr>
+      <tr><td><span class="amostra" style="background:#9E2F4C"></span>Beterraba</td><td class="m">#9E2F4C</td><td>Só estados de perigo: erro, cancelado, sem estoque</td></tr>
+    </tbody>
+  </table>
+  <p>Os títulos usam Literata, o texto usa Public Sans e códigos, SKUs e identificadores usam IBM Plex Mono. As três são auto-hospedadas em <code>apps/web/public/fonts</code>, com os arquivos de licença OFL, e são as mesmas deste manual.</p>
+  <p>Cada produto de demonstração tem uma ilustração própria em <code>apps/web/public/produtos/&lt;slug&gt;.svg</code>, todas no mesmo estilo: objeto centralizado, formas chapadas com poucos tons, traço fino, o mesmo fundo neutro e uma sombra de contato discreta. A interface usa o <code>imageUrl</code> do produto; se ele estiver vazio, tenta a ilustração do slug; se a imagem não carregar, mostra um espaço neutro com um ícone de caixa.</p>
+
+  <h2>Novidades da 1.2.0</h2>
+  <p>A API, os bancos, as migrações e os eventos continuam iguais aos da 1.1.0. Mudam a linguagem do código e a interface.</p>
+  <ul>
+    <li><strong>Todo o código agora é JavaScript.</strong> Os oito serviços, os três pacotes e a interface deixaram o TypeScript. Os serviços rodam direto de <code>src/</code> com <code>node</code>, sem etapa de compilação e sem a pasta <code>dist/</code>; os pacotes exportam <code>src/index.js</code>; os contratos continuam em Zod, com JSDoc nos pontos de entrada. Saíram o <code>typecheck</code>, os <code>tsconfig</code>, o <code>tsc</code> e o <code>tsx</code>; entrou o <code>npm run check</code>. O Node.js 22.18 ou mais novo é o mínimo, porque o cliente Prisma gerado (<code>src/generated/prisma/client.ts</code>) é importado direto pelo Node, que remove os tipos ao carregar.</li>
+    <li><strong>Interface nova.</strong> Mesma tipografia do Lume (Literata, Public Sans e IBM Plex Mono), papel cru, verde como única cor de ação e etiquetas de preço de empório. Tema claro e escuro, foco visível em tudo e layout próprio para celular. Os componentes agora são arquivos <code>.jsx</code>.</li>
+    <li><strong>Loja:</strong> filtros laterais por seção, faixa de preço e Só com estoque, com os filtros ativos em etiquetas removíveis; busca com atalho <kbd>/</kbd>; aviso de Restam N quando o estoque está acabando; visualização rápida do produto com quantidade.</li>
+    <li><strong>Guardados:</strong> o coração em cada produto guarda para depois. A lista fica no navegador, separada por conta, e tem Pôr tudo no carrinho.</li>
+    <li><strong>Carrinho e checkout:</strong> carrinho em forma de cupom, Guardar tira o item do carrinho sem perdê-lo, e o checkout tem três etapas (Entrega, Pagamento, Revisão) e lembra o último endereço.</li>
+    <li><strong>Pedidos:</strong> a saga aparece numa trilha com o serviço que resolveu cada etapa (<code>orders</code>, <code>inventory</code>, <code>payments</code>) e o motivo quando o pedido cai; Comprar de novo devolve os itens ao carrinho.</li>
+    <li><strong>Administração:</strong> receita confirmada, ticket médio, pedidos para enviar e produtos com estoque baixo no topo; filtros de pedido, exportação em CSV, busca e filtro de estoque baixo nos produtos.</li>
+    <li><strong>Serviços:</strong> página pública que lê <code>/health</code> do gateway a cada 5 segundos e mostra cada serviço, o Redis e o tempo de resposta.</li>
+  </ul>
+  <p>Os dois manuais em PDF foram refeitos com o mesmo visual, a partir das fontes HTML em <code>docs/fonte/</code>.</p>
+</section>
+
+<!-- 2 -->
+<section class="capitulo">
+  <header class="abertura"><span class="num">2</span><h1>Como rodar</h1><p>Da primeira execução com Docker até deixar a loja no ar com HTTPS.</p></header>
+
+  <h2>Requisitos</h2>
+  <p>Com Docker, basta o Docker com Docker Compose (no Windows, o Docker Desktop). Para desenvolver sem Docker: Node.js 22.18 ou mais novo, PostgreSQL 16 e Redis 7. Os onze contêineres precisam de cerca de 2 GB de memória livre.</p>
+
+  <h2>Primeira execução</h2>
+  <ol class="passos">
+    <li>Baixe ou clone o repositório.</li>
+    <li>No Windows, dê dois cliques em <code>iniciar.cmd</code>. No Linux ou macOS, rode <code>./iniciar.sh</code>.</li>
+    <li>O script cria o <code>.env</code> a partir do <code>.env.example</code>, com uma senha aleatória para o banco e um segredo aleatório para os serviços.</li>
+    <li>As imagens são construídas e os contêineres sobem: PostgreSQL, Redis, os oito serviços e a interface.</li>
+    <li>Cada serviço aplica as próprias migrações ao iniciar. O auth cria os clientes OAuth2 e as contas de demonstração, e o catalog publica os produtos de exemplo.</li>
+    <li>O navegador abre em <code>http://localhost:8080</code>.</li>
+  </ol>
+  <p>A primeira construção baixa as dependências e leva alguns minutos. As seguintes reaproveitam o cache.</p>
+
+  <h2>Contas de demonstração</h2>
+  <table>
+    <thead><tr><th>Papel</th><th>E-mail</th><th>Senha</th><th>Pode</th></tr></thead>
+    <tbody>
+      <tr><td>Administrador</td><td class="m">admin@cesto.dev</td><td class="m">Cesto@2026</td><td>Tudo, incluindo produtos, estoque e expedição</td></tr>
+      <tr><td>Cliente</td><td class="m">cliente@cesto.dev</td><td class="m">Cesto@2026</td><td>Carrinho, guardados, pedidos e notificações</td></tr>
+    </tbody>
+  </table>
+  <p>Os nomes, os produtos e o domínio <code>cesto.dev</code> são fictícios. Para trocar a senha das contas de demonstração, altere <code>DEMO_PASSWORD</code> antes da primeira execução.</p>
+
+  <h2>Comandos do dia a dia</h2>
+<pre>docker compose ps                          <span class="c"># estado dos contêineres</span>
+docker compose logs -f orders inventory    <span class="c"># acompanhar a saga</span>
+docker compose restart payments            <span class="c"># reiniciar um serviço</span>
+docker compose up -d --scale inventory=3   <span class="c"># mais consumidores de eventos</span>
+docker compose down                        <span class="c"># parar (mantém os dados)</span>
+docker compose down -v                     <span class="c"># parar e apagar bancos e Redis</span></pre>
+
+  <h2 id="sem-docker">Desenvolvimento sem Docker</h2>
+  <p>Com o PostgreSQL e o Redis rodando na máquina e o <code>.env</code> preenchido:</p>
+<pre id="cmd-sem-docker">npm ci
+npm run generate          <span class="c"># gera o cliente Prisma de cada serviço</span>
+npm run migrate           <span class="c"># aplica as migrações nos seis bancos</span>
+npm run dev               <span class="c"># sobe os oito serviços com recarga automática</span>
+npm run dev -w apps/web   <span class="c"># interface em http://localhost:5173</span></pre>
+  <p id="txt-sem-docker">Não há etapa de compilação: <code>npm run dev</code> roda <code>node --watch src/main.js</code> em cada serviço, e <code>npm run start:local</code> roda <code>node src/main.js</code>, sem recarga. A API fica em <code>http://localhost:8000</code>. O único build que resta é o da interface (<code>npm run build</code>, que só existe em <code>apps/web</code>, com o Vite), usado na imagem Docker do contêiner web.</p>
+
+  <h2>Uso em produção</h2>
+  <ol class="passos">
+    <li>No <code>.env</code>, defina <code>SEED_DEMO=false</code> antes da primeira execução, com o banco vazio.</li>
+    <li>Ajuste <code>WEB_REDIRECT_URIS</code> e <code>CORS_ORIGINS</code> com o endereço público, por exemplo <code>https://loja.exemplo.com/callback</code>.</li>
+    <li>Suba o projeto e cadastre sua conta pela tela de entrada.</li>
+    <li>Promova a conta a administrador no banco <code>cesto_auth</code>:
+<pre>docker compose exec postgres psql -U cesto -d cesto_auth \
+  -c "UPDATE users SET role = 'ADMIN' WHERE email = 'voce@empresa.com';"</pre></li>
+    <li>Saia e entre de novo para receber um token com os escopos de administrador.</li>
+  </ol>
+
+  <h2>Acesso pela rede e HTTPS</h2>
+  <p>Coloque um proxy com HTTPS (Caddy, Traefik ou Nginx) na frente da porta <code>APP_PORT</code>. O contêiner web já encaminha <code>/api</code>, <code>/oauth</code>, <code>/.well-known</code> e <code>/health</code> para o gateway. O gateway confia nos cabeçalhos <code>X-Forwarded-*</code> para registrar o IP real e aplicar o rate limit por cliente.</p>
+</section>
+
+<!-- 3 -->
+<section class="capitulo">
+  <header class="abertura"><span class="num">3</span><h1>Guia das telas</h1><p>O que cada tela da loja e do painel mostra, o que dá para fazer nela e de qual serviço vêm os dados.</p></header>
+
+  <h2>Loja</h2>
+  <p>Lista os produtos ativos, cada um com a sua ilustração, seção, SKU, etiqueta de preço e saldo. Os dados vêm do catalog; o saldo de cada produto vem do inventory. Produtos sem estoque continuam visíveis, mas não podem ser adicionados ao carrinho.</p>
+  <ul>
+    <li><strong>Filtros laterais.</strong> Seções (categorias) com a contagem de produtos em cada uma, faixas de preço (até R$ 80, R$ 80 a R$ 200, acima de R$ 200) e a opção Só com estoque. Os filtros ativos aparecem como etiquetas que podem ser removidas uma a uma.</li>
+    <li><strong>Busca.</strong> Por nome, descrição ou SKU. O atalho <kbd>/</kbd> leva direto ao campo de busca.</li>
+    <li><strong>Ordenação.</strong> Chegaram agora, Nome (A a Z), Menor preço e Maior preço, com 12 produtos por página.</li>
+    <li><strong>Guardar.</strong> O botão com o coração em cada produto guarda o item para depois (veja Guardados).</li>
+    <li><strong>Estoque acabando.</strong> Com poucas unidades, o produto mostra Restam N (ou Última unidade).</li>
+  </ul>
+  <figure><img src="../images/tela-loja.png" alt=""><figcaption><b>Fig. 3.1</b>Loja com filtros laterais, busca, ordenação e etiquetas de preço.</figcaption></figure>
+
+  <h2>Visualização rápida do produto</h2>
+  <p>Clicar num produto abre um painel com a ilustração grande, a descrição, o SKU, o preço e o saldo. Ali dá para escolher a quantidade antes de adicionar ao carrinho e guardar o produto. <kbd>Esc</kbd> fecha o painel.</p>
+  <figure><img src="../images/tela-produto.png" alt=""><figcaption><b>Fig. 3.2</b>Visualização rápida, com seletor de quantidade.</figcaption></figure>
+
+  <h2>Guardados</h2>
+  <p>Lista os produtos guardados com o botão Guardar, com preço e saldo atuais, o botão Adicionar ao carrinho em cada um e Pôr tudo no carrinho para a lista inteira. A lista fica no navegador (<code>localStorage</code>, chave <code>cesto.guardados.&lt;id do usuário&gt;</code>), separada por usuário: não vai para o servidor e não aparece em outro aparelho.</p>
+  <figure><img src="../images/tela-guardados.png" alt=""><figcaption><b>Fig. 3.3</b>Produtos guardados.</figcaption></figure>
+
+  <h2>Entrada e cadastro</h2>
+  <p>A tela de entrada faz o fluxo Authorization Code com PKCE: gera o <code>code_verifier</code>, envia o desafio S256 junto com o e-mail e a senha, recebe o código e troca pelo token. O cadastro cria um cliente e já faz o login.</p>
+  <figure class="baixa"><img src="../images/tela-entrada.png" alt=""><figcaption><b>Fig. 3.4</b>Entrada e cadastro.</figcaption></figure>
+
+  <h2>Carrinho</h2>
+  <p>O carrinho abre num painel lateral em formato de cupom: cada linha com miniatura, quantidade e subtotal, e o total no pé. Guardar para depois tira o item do carrinho e o coloca em Guardados. O carrinho (serviço cart, no Redis) guarda só o produto e a quantidade; preços e nomes são lidos do catálogo a cada consulta, então o cliente sempre vê o valor atual.</p>
+  <figure><img src="../images/tela-carrinho.png" alt=""><figcaption><b>Fig. 3.5</b>Carrinho em formato de cupom.</figcaption></figure>
+
+  <h2>Checkout</h2>
+  <p>O checkout tem três etapas, e dá para voltar a qualquer uma antes de confirmar:</p>
+  <ol class="passos">
+    <li><strong>Entrega.</strong> Endereço. A tela lembra o último endereço usado neste navegador (chave <code>cesto.endereco</code>) e já o preenche.</li>
+    <li><strong>Pagamento.</strong> Pix, Cartão ou Boleto. Com Cartão dá para simular um cartão recusado.</li>
+    <li><strong>Revisão.</strong> Itens com miniatura, endereço, forma de pagamento e total. Confirmar cria o pedido (<code>POST /api/v1/orders</code>, resposta 202) e começa a saga.</li>
+  </ol>
+  <figure><img src="../images/tela-checkout.png" alt=""><figcaption><b>Fig. 3.6</b>Checkout em etapas: Entrega, Pagamento, Revisão.</figcaption></figure>
+
+  <h2>Pedidos</h2>
+  <p>Cada pedido mostra os itens com miniatura, o total e a trilha da saga: cada etapa com o horário e o serviço que cuidou dela (orders recebe o pedido, inventory reserva o estoque, payments cobra, orders confirma). Quando o pedido cai, a trilha mostra o motivo (falta de estoque, pagamento recusado, cancelamento). A tela se atualiza sozinha enquanto há pedidos em andamento.</p>
+  <ul>
+    <li><strong>Comprar de novo</strong> põe os mesmos itens no carrinho, com os preços atuais.</li>
+    <li><strong>Cancelar</strong> aparece enquanto o pedido ainda não foi confirmado. A reserva de estoque volta para o saldo.</li>
+  </ul>
+  <figure><img src="../images/tela-pedidos.png" alt=""><figcaption><b>Fig. 3.7</b>Pedidos com a trilha da saga por serviço.</figcaption></figure>
+
+  <h2>Notificações</h2>
+  <p>Cada evento importante vira uma notificação: boas-vindas, pedido recebido, confirmado, cancelado, pagamento recusado, enviado e entregue. O sino mostra quantas ainda não foram lidas. Os dados vêm do serviço notifications.</p>
+  <figure class="baixa"><img src="../images/tela-notificacoes.png" alt=""><figcaption><b>Fig. 3.8</b>Painel de notificações.</figcaption></figure>
+
+  <h2>Administração</h2>
+  <p>Só aparece para administradores. No topo ficam os indicadores: receita confirmada, ticket médio, pedidos para enviar e produtos com estoque baixo.</p>
+  <ul>
+    <li><strong>Pedidos.</strong> A loja vê os pedidos de todos os clientes, filtra por status (por exemplo, Em andamento), marca cada um como enviado, entregue ou cancelado e exporta a lista em CSV.</li>
+    <li><strong>Produtos e estoque.</strong> Busca por nome ou SKU, filtro estoque baixo (menos de 5 unidades disponíveis), alteração de preço, ativação e desativação e ajuste do saldo disponível. O cadastro de produto fica num bloco recolhível.</li>
+  </ul>
+  <figure><img src="../images/tela-admin-pedidos.png" alt=""><figcaption><b>Fig. 3.9</b>Administração: indicadores e pedidos filtrados por status.</figcaption></figure>
+  <figure><img src="../images/tela-admin-produtos.png" alt=""><figcaption><b>Fig. 3.10</b>Administração: produtos e estoque.</figcaption></figure>
+
+  <h2>Serviços</h2>
+  <p>Página pública, sem login, com a saúde de cada um dos oito serviços e do Redis. Os dados vêm de <code>GET /health</code> no gateway, que faz um ping no Redis e consulta o <code>/health</code> de cada serviço com limite de 2 s. A página mostra o estado de cada um, o tempo de resposta do gateway e o histórico das últimas 30 consultas. Ela se atualiza sozinha a cada 5 s, então serve para acompanhar um serviço que está subindo ou reiniciando.</p>
+  <figure><img src="../images/tela-servicos.png" alt=""><figcaption><b>Fig. 3.11</b>Saúde dos serviços e do Redis.</figcaption></figure>
+
+  <h2>Tema escuro e atalhos</h2>
+  <p>O botão no cabeçalho alterna entre tema claro e escuro. Até a pessoa escolher, a interface segue o tema do sistema; a escolha fica no navegador (chave <code>cesto.tema</code>). Atalhos de teclado: <kbd>/</kbd> vai para a busca e <kbd>Esc</kbd> fecha painéis (carrinho, notificações, visualização rápida).</p>
+  <figure><img src="../images/tela-escuro.png" alt=""><figcaption><b>Fig. 3.12</b>Loja no tema escuro.</figcaption></figure>
+
+  <div class="evita-quebra">
+  <h2>No celular</h2>
+  <p>A interface se adapta a telas pequenas: a loja, os filtros, o carrinho, os pedidos e o painel funcionam no celular com os mesmos recursos da versão para computador.</p>
+  <figure class="alta"><img src="../images/tela-celular.png" alt="" style="max-width:62mm;max-height:125mm"><figcaption style="text-align:center"><b>Fig. 3.13</b>Loja no celular.</figcaption></figure>
+  </div>
+</section>
+
+<!-- 4 -->
+<section class="capitulo">
+  <header class="abertura"><span class="num">4</span><h1>Arquitetura</h1><p>Os serviços, o caminho de uma requisição e a saga que transforma um carrinho em pedido.</p></header>
+
+  <h2>Serviços</h2>
+  <table>
+    <thead><tr><th>Serviço</th><th>Porta</th><th>Banco</th><th>Publica</th><th>Consome</th></tr></thead>
+    <tbody>
+      <tr><td class="m">gateway</td><td class="m">8000</td><td class="sem">nenhum</td><td class="sem">nada</td><td class="sem">nada</td></tr>
+      <tr><td class="m">auth</td><td class="m">4001</td><td class="m">cesto_auth</td><td class="m">user.registered</td><td class="sem">nada</td></tr>
+      <tr><td class="m">catalog</td><td class="m">4002</td><td class="m">cesto_catalog</td><td class="m">product.created, product.updated</td><td class="sem">nada</td></tr>
+      <tr><td class="m">inventory</td><td class="m">4003</td><td class="m">cesto_inventory</td><td class="m">inventory.reserved, inventory.rejected</td><td class="m">product.*, order.placed, order.confirmed, order.cancelled</td></tr>
+      <tr><td class="m">cart</td><td class="m">4004</td><td>Redis</td><td class="sem">nada</td><td class="m">order.placed</td></tr>
+      <tr><td class="m">orders</td><td class="m">4005</td><td class="m">cesto_orders</td><td class="m">order.*, payment.requested</td><td class="m">inventory.*, payment.approved, payment.declined</td></tr>
+      <tr><td class="m">payments</td><td class="m">4006</td><td class="m">cesto_payments</td><td class="m">payment.approved, payment.declined</td><td class="m">payment.requested, order.cancelled</td></tr>
+      <tr><td class="m">notifications</td><td class="m">4007</td><td class="m">cesto_notifications</td><td class="sem">nada</td><td class="m">user.registered, order.*</td></tr>
+    </tbody>
+  </table>
+  <p>Cada serviço é dono dos seus dados. Nenhum serviço lê o banco de outro: quando precisa de um dado alheio, chama a API interna com um token de serviço ou reage a um evento.</p>
+
+  <h2>Caminho de uma requisição</h2>
+  <div class="diagrama">
+    <svg viewBox="0 0 680 150" font-family="Public Sans" font-size="10.5" fill="#1F201C">
+      <defs><marker id="seta" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#1F201C"/></marker></defs>
+      <g stroke="#1F201C" stroke-width="1" fill="#fff">
+        <rect x="2" y="20" width="96" height="46"/><rect x="138" y="20" width="96" height="46"/><rect x="274" y="20" width="110" height="46"/><rect x="424" y="20" width="110" height="46"/><rect x="574" y="20" width="104" height="46"/>
+        <rect x="424" y="96" width="110" height="46" fill="#F4EFE6"/><rect x="574" y="96" width="104" height="46" fill="#F4EFE6"/>
+      </g>
+      <g stroke="#1F201C" stroke-width="1" marker-end="url(#seta)">
+        <line x1="98" y1="43" x2="136" y2="43"/><line x1="234" y1="43" x2="272" y2="43"/><line x1="384" y1="43" x2="422" y2="43"/><line x1="534" y1="43" x2="572" y2="43"/>
+        <line x1="626" y1="66" x2="626" y2="94"/><line x1="574" y1="119" x2="536" y2="119"/>
+      </g>
+      <g font-family="Literata" font-weight="600" font-size="12" text-anchor="middle">
+        <text x="50" y="40">Navegador</text><text x="186" y="40">web</text><text x="329" y="40">gateway</text><text x="479" y="40">serviço</text><text x="626" y="40">PostgreSQL</text>
+        <text x="479" y="116">Redis Streams</text><text x="626" y="116">relay</text>
+      </g>
+      <g fill="#5B574E" font-size="9" text-anchor="middle">
+        <text x="50" y="56">React</text><text x="186" y="56">Nginx :8080</text><text x="329" y="56">proxy, rate limit</text><text x="479" y="56">JWT, Zod, regra</text><text x="626" y="56">dados + outbox</text>
+        <text x="479" y="132">XREADGROUP</text><text x="626" y="132">XADD</text>
+      </g>
+      <g font-family="IBM Plex Mono" font-size="8.5" fill="#2E5E43">
+        <text x="276" y="88">x-request-id em todos os logs</text>
+      </g>
+    </svg>
+  </div>
+  <p>O gateway acrescenta um <code>x-request-id</code> que acompanha a requisição em todos os logs e volta na resposta. Rotas <code>/internal/*</code> nunca são expostas pelo gateway.</p>
+
+  <h2>A saga do pedido</h2>
+  <div class="diagrama">
+    <svg viewBox="0 0 680 210" font-family="Public Sans" font-size="10" fill="#1F201C">
+      <defs>
+        <marker id="s2" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#1F201C"/></marker>
+        <marker id="s3" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#9E2F4C"/></marker>
+      </defs>
+      <!-- estados -->
+      <g stroke="#1F201C" stroke-width="1">
+        <rect x="2" y="10" width="120" height="44" rx="22" fill="#F4EFE6"/>
+        <rect x="270" y="10" width="140" height="44" rx="22" fill="#F4EFE6"/>
+        <rect x="556" y="10" width="122" height="44" rx="22" fill="#E3ECE5" stroke="#2E5E43"/>
+        <rect x="270" y="156" width="140" height="44" rx="22" fill="#F7ECEE" stroke="#9E2F4C"/>
+      </g>
+      <!-- serviços -->
+      <g stroke="#1F201C" stroke-width="1" fill="#fff">
+        <rect x="140" y="12" width="110" height="40"/>
+        <rect x="428" y="12" width="110" height="40"/>
+      </g>
+      <g font-family="IBM Plex Mono" font-weight="600" font-size="9.5" text-anchor="middle">
+        <text x="62" y="30">PENDING</text><text x="340" y="30">AWAITING_PAYMENT</text><text x="617" y="30" fill="#2E5E43">CONFIRMED</text><text x="340" y="176" fill="#9E2F4C">CANCELLED</text>
+      </g>
+      <g font-size="8.5" fill="#5B574E" text-anchor="middle">
+        <text x="62" y="44">pedido gravado</text><text x="340" y="44">reserva feita</text><text x="617" y="44">baixa definitiva</text><text x="340" y="190">reserva devolvida</text>
+      </g>
+      <g font-family="Literata" font-weight="600" font-size="11" text-anchor="middle"><text x="195" y="30">inventory</text><text x="483" y="30">payments</text></g>
+      <g font-size="8.5" fill="#5B574E" text-anchor="middle"><text x="195" y="44">reserva tudo ou nada</text><text x="483" y="44">cobra</text></g>
+      <g stroke="#1F201C" stroke-width="1" marker-end="url(#s2)"><line x1="122" y1="32" x2="138" y2="32"/><line x1="250" y1="32" x2="268" y2="32"/><line x1="410" y1="32" x2="426" y2="32"/><line x1="538" y1="32" x2="554" y2="32"/></g>
+      <g font-family="IBM Plex Mono" font-size="8" fill="#2E5E43">
+        <text x="20" y="72">order.placed</text><text x="203" y="72">inventory.reserved</text><text x="330" y="72">payment.requested</text><text x="500" y="72">payment.approved</text>
+      </g>
+      <g stroke="#9E2F4C" stroke-width="1" stroke-dasharray="4 3" fill="none" marker-end="url(#s3)">
+        <path d="M195,52 L195,178 L268,178"/>
+        <path d="M483,52 L483,178 L412,178"/>
+      </g>
+      <g font-family="IBM Plex Mono" font-size="8" fill="#9E2F4C"><text x="200" y="140">inventory.rejected</text><text x="488" y="140">payment.declined</text></g>
+    </svg>
+    <p class="legenda">Caixas arredondadas são estados do pedido; caixas retas são os serviços que reagem aos eventos. As linhas tracejadas são os caminhos de falha.</p>
+  </div>
+  <table>
+    <thead><tr><th style="width:36%">Situação</th><th>O que acontece</th></tr></thead>
+    <tbody>
+      <tr><td>Falta estoque</td><td><code>inventory.rejected</code> cancela o pedido sem mexer no saldo</td></tr>
+      <tr><td>Pagamento recusado</td><td><code>payment.declined</code> cancela o pedido e <code>order.cancelled</code> devolve a reserva</td></tr>
+      <tr><td>Cliente cancela antes do pagamento</td><td>O pedido é cancelado e a reserva volta para o saldo</td></tr>
+      <tr><td>Loja cancela um pedido confirmado</td><td>O estoque baixado volta e o pagamento é estornado</td></tr>
+      <tr><td>Pagamento aprovado depois do cancelamento</td><td>O pedido continua cancelado e o pagamento é estornado</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Outbox, deduplicação e novas tentativas</h2>
+  <table>
+    <thead><tr><th style="width:26%">Mecanismo</th><th>Como funciona</th></tr></thead>
+    <tbody>
+      <tr><td>Outbox</td><td>O evento é gravado na tabela <code>outbox_events</code> na mesma transação da mudança. Um relay publica no Redis e marca como publicado. Se o Redis cair, nada se perde.</td></tr>
+      <tr><td>Deduplicação</td><td>Quem consome grava o id do evento em <code>processed_events</code> na mesma transação do efeito. Entregas repetidas são ignoradas.</td></tr>
+      <tr><td>Grupos de consumidores</td><td>Cada serviço lê com <code>XREADGROUP</code>. Várias réplicas dividem o trabalho.</td></tr>
+      <tr><td>Novas tentativas</td><td>Mensagem não confirmada é reivindicada com <code>XCLAIM</code> depois de 15 s. Depois de 5 entregas, vai para <code>cesto:events:dead-letter</code> com o motivo.</td></tr>
+      <tr><td>Concorrência no estoque</td><td>A reserva usa <code>UPDATE ... WHERE available &gt;= quantidade</code> numa transação, e o banco ainda impede saldo negativo com <code>CHECK</code>.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Estrutura de pastas</h2>
+<pre id="pastas">packages/contracts/       esquemas Zod, auxiliares de DTO, rotas, eventos, cliente HTTP,
+                          dados de demonstração (exporta src/index.js)
+packages/core/            createService, route, verificação de JWT, erros de domínio,
+                          outbox, OpenAPI, paginação (exporta src/index.js)
+packages/bus/             EventBus em Redis Streams (exporta src/index.js)
+services/&lt;nome&gt;/src/      main.js (composição), env.js (configuração), db.js (Prisma),
+                          regras do domínio; roda direto, sem build
+services/&lt;nome&gt;/src/generated/prisma/
+                          cliente Prisma gerado por npm run generate (fora do Git)
+services/&lt;nome&gt;/prisma/   schema.prisma e migrações
+services/&lt;nome&gt;/test/     testes do serviço
+apps/web/src/             App.jsx, pages/, components/, api.js, styles.css
+docker/                   Dockerfiles, nginx.conf, start.sh, postgres/init.sql
+scripts/                  dev.mjs, migrate.mjs, generate.mjs, smoke.mjs, clean.mjs
+docs/                     manuais em PDF, imagens e fonte/ (HTML dos manuais)</pre>
+</section>
+
+<!-- 5 -->
+<section class="capitulo">
+  <header class="abertura"><span class="num">5</span><h1>Autenticação OAuth2</h1><p>Como a interface e os serviços obtêm tokens, e o que cada escopo libera.</p></header>
+
+  <h2>Fluxos suportados</h2>
+  <table>
+    <thead><tr><th style="width:28%">Fluxo</th><th style="width:30%">Quem usa</th><th>Detalhes</th></tr></thead>
+    <tbody>
+      <tr><td>Authorization Code + PKCE (S256)</td><td>Interface web (<code>cesto-web</code>, cliente público)</td><td>Código de uso único, válido por 60 s, preso ao <code>redirect_uri</code> e ao desafio</td></tr>
+      <tr><td>Refresh Token</td><td>Interface web</td><td>Rotação a cada uso; reuso de um token antigo revoga a família inteira</td></tr>
+      <tr><td>Client Credentials</td><td>Serviços (<code>cesto-internal</code>)</td><td>Escopo <code>internal</code>, token em cache até 30 s antes de expirar</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Passo a passo do login</h2>
+  <ol class="passos">
+    <li>O cliente gera um <code>code_verifier</code> aleatório e calcula <code>code_challenge = BASE64URL(SHA256(verifier))</code>.</li>
+    <li><code>POST /oauth/authorize</code> com <code>client_id</code>, <code>redirect_uri</code>, <code>code_challenge</code>, <code>state</code>, e-mail e senha. A resposta traz o <code>code</code> e o mesmo <code>state</code>.</li>
+    <li><code>POST /oauth/token</code> com <code>grant_type=authorization_code</code>, o <code>code</code> e o <code>code_verifier</code>.</li>
+    <li>A resposta traz <code>access_token</code> (JWT, 15 min), <code>refresh_token</code> (30 dias) e os escopos concedidos.</li>
+  </ol>
+<pre>{ "access_token": "eyJhbGciOiJSUzI1NiIsImtpZCI6...", "token_type": "Bearer",
+  "expires_in": 900, "refresh_token": "...",
+  "scope": "orders:read orders:write cart:write notifications:read" }</pre>
+  <p>O endpoint de token aceita JSON ou <code>application/x-www-form-urlencoded</code> e responde erros no formato do RFC 6749 (<code>{"error": "invalid_grant", "error_description": "..."}</code>).</p>
+
+  <h2>Escopos e papéis</h2>
+  <table>
+    <thead><tr><th>Escopo</th><th>Cliente</th><th>Administrador</th><th>Libera</th></tr></thead>
+    <tbody>
+      <tr><td class="m">cart:write</td><td>sim</td><td>sim</td><td>Alterar o carrinho</td></tr>
+      <tr><td class="m">orders:read</td><td>sim</td><td>sim</td><td>Ver pedidos e pagamentos</td></tr>
+      <tr><td class="m">orders:write</td><td>sim</td><td>sim</td><td>Fechar e cancelar pedidos próprios</td></tr>
+      <tr><td class="m">notifications:read</td><td>sim</td><td>sim</td><td>Notificações</td></tr>
+      <tr><td class="m">catalog:write</td><td>não</td><td>sim</td><td>Produtos e categorias</td></tr>
+      <tr><td class="m">inventory:write</td><td>não</td><td>sim</td><td>Ajustar estoque</td></tr>
+      <tr><td class="m">orders:manage</td><td>não</td><td>sim</td><td>Enviar, entregar e cancelar qualquer pedido</td></tr>
+      <tr><td class="m">internal</td><td>não</td><td>não</td><td>Rotas internas (só serviços)</td></tr>
+    </tbody>
+  </table>
+  <p>Cada rota declara no contrato o tipo de acesso (<code>public</code>, <code>user</code>, <code>admin</code> ou <code>service</code>) e os escopos exigidos. A verificação acontece antes do handler.</p>
+
+  <h2>Chaves e tokens</h2>
+  <ul>
+    <li>As chaves RSA de 2048 bits são geradas na primeira execução e guardadas em <code>signing_keys</code>. A chave pública fica em <code>GET /oauth/jwks</code>.</li>
+    <li>Os demais serviços validam os tokens com o JWKS (cache de 10 min), sem consultar o auth a cada requisição.</li>
+    <li>Senhas e segredos de cliente usam scrypt com sal aleatório. Códigos e refresh tokens são guardados só como SHA-256.</li>
+    <li>Códigos e tokens expirados são apagados a cada hora.</li>
+  </ul>
+</section>
+
+<!-- 6 -->
+<section class="capitulo">
+  <header class="abertura"><span class="num">6</span><h1>Contratos e validação</h1><p>O pacote <code>packages/contracts</code> é a única fonte da verdade das rotas, dos DTOs e dos eventos.</p></header>
+  <p>Os contratos são esquemas Zod em JavaScript. O mesmo esquema valida em tempo de execução a entrada e a saída de cada rota, gera o OpenAPI e alimenta o cliente HTTP usado pela interface, pelos serviços e pelo teste ponta a ponta. Não há tipos de compilação: quando ajuda a leitura, as funções têm comentários JSDoc leves (<code>@param</code>, <code>@returns</code>), que o editor usa para completar código.</p>
+
+  <h2>Auxiliares de DTO</h2>
+  <table>
+    <thead><tr><th style="width:36%">Auxiliar</th><th>Para que serve</th></tr></thead>
+    <tbody>
+      <tr><td class="m">paginated(schema)</td><td>Esquema de página com <code>items</code>, <code>page</code>, <code>pageSize</code>, <code>total</code> e <code>totalPages</code></td></tr>
+      <tr><td class="m">toPage(items, total, page, pageSize)</td><td>Monta a página a partir de uma consulta</td></tr>
+      <tr><td class="m">envelope(schema)</td><td>União discriminada <code>{ ok: true, data }</code> ou <code>{ ok: false, error }</code></td></tr>
+      <tr><td class="m">success(schema) / failure</td><td>Os dois lados do envelope, separados</td></tr>
+      <tr><td class="m">ok(value) / err(error)</td><td>Retorno de sucesso ou falha sem exceção</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Contratos de rota</h2>
+  <p>Cada rota é declarada uma vez com <code>defineEndpoint</code>: método, caminho, resumo, tags, tipo de acesso e os esquemas de <code>params</code>, <code>query</code>, <code>body</code> e <code>response</code>. <code>buildPath</code> preenche os parâmetros do caminho (<code>/orders/:id</code>) e <code>buildQuery</code> monta a query string.</p>
+<pre><span class="k">export const</span> api = {
+  catalog: {
+    getProduct: defineEndpoint({
+      method: <span class="s">'GET'</span>, path: <span class="s">'/api/v1/catalog/products/:id'</span>, summary: <span class="s">'Detalhe do produto'</span>,
+      tags: [<span class="s">'catalog'</span>], auth: <span class="s">'public'</span>, params: IdParams, response: ProductDto
+    })
+  }
+};
+
+route(app, api.catalog.getProduct, ({ params, principal }) =&gt;
+  catalog.get(params.id, isAdmin(principal)));
+
+<span class="k">const</span> product = <span class="k">await</span> request(api.catalog.getProduct, { params: { id } });</pre>
+  <p><code>route</code> valida params, query e body com Zod, converte tipos (<code>?page=2</code> vira número), checa o token, o papel e os escopos, chama o handler, valida a saída e devolve no envelope. Campos extras são recusados (<code>z.strictObject</code>). Como não há compilador, essa validação em tempo de execução, mais os testes, é o que garante que o handler e o cliente concordam com o contrato.</p>
+
+  <h2>Erros de domínio</h2>
+  <table>
+    <thead><tr><th style="width:34%">Código</th><th style="width:10%">HTTP</th><th>Quando</th></tr></thead>
+    <tbody>
+      <tr><td class="m">VALIDATION_FAILED</td><td class="m">422</td><td>Entrada inválida, com a lista de campos</td></tr>
+      <tr><td class="m">UNAUTHENTICATED</td><td class="m">401</td><td>Sem token, token inválido ou expirado</td></tr>
+      <tr><td class="m">FORBIDDEN</td><td class="m">403</td><td>Papel ou escopo insuficiente (<code>details.missing</code>)</td></tr>
+      <tr><td class="m">NOT_FOUND</td><td class="m">404</td><td>Registro inexistente ou de outro usuário</td></tr>
+      <tr><td class="m">CONFLICT</td><td class="m">409</td><td>Duplicidade (SKU, slug, e-mail)</td></tr>
+      <tr><td class="m">INSUFFICIENT_STOCK</td><td class="m">409</td><td>Saldo insuficiente</td></tr>
+      <tr><td class="m">INVALID_STATE_TRANSITION</td><td class="m">409</td><td>Mudança de status não permitida</td></tr>
+      <tr><td class="m">EMPTY_CART</td><td class="m">422</td><td>Checkout com carrinho vazio</td></tr>
+      <tr><td class="m">PAYMENT_DECLINED</td><td class="m">402</td><td>Cobrança recusada</td></tr>
+      <tr><td class="m">RATE_LIMITED</td><td class="m">429</td><td>Limite do gateway</td></tr>
+      <tr><td class="m">UPSTREAM_UNAVAILABLE</td><td class="m">503</td><td>Serviço vizinho fora do ar</td></tr>
+      <tr><td class="m">INTERNAL</td><td class="m">500</td><td>Falha inesperada (detalhes só no log)</td></tr>
+    </tbody>
+  </table>
+  <p>Erros do Prisma também são traduzidos: <code>P2002</code> vira <code>CONFLICT</code> e <code>P2025</code> vira <code>NOT_FOUND</code>.</p>
+
+  <h2>Eventos validados</h2>
+  <p><code>eventSchemas</code> associa cada nome de evento a um esquema Zod. <code>bus.publish('order.placed', payload)</code> valida o payload antes de publicar, e o handler de <code>bus.subscribe</code> recebe o payload já validado. Na leitura, o envelope é validado de novo; payload inválido vai direto para a dead-letter.</p>
+</section>
+
+<!-- 7 -->
+<section class="capitulo">
+  <header class="abertura"><span class="num">7</span><h1>API REST</h1><p>Convenções, todas as rotas públicas e exemplos com curl.</p></header>
+
+  <h2>Envelope e convenções</h2>
+  <ul>
+    <li>Base: <code>http://localhost:8080</code> (pela interface) ou <code>http://localhost:8000</code> (gateway direto).</li>
+    <li>Valores em centavos (<code>priceCents</code>, <code>totalCents</code>) e datas em ISO 8601.</li>
+    <li>Paginação com <code>page</code> e <code>pageSize</code> (máximo 100).</li>
+    <li>Documentação interativa em <code>/api/docs</code> e especificação em <code>/api/openapi.json</code>, geradas dos contratos.</li>
+  </ul>
+<pre>{ "ok": true, "data": { "items": [ ... ], "page": 1, "pageSize": 20, "total": 16, "totalPages": 1 } }
+
+{ "ok": false, "error": { "code": "VALIDATION_FAILED", "message": "Dados inválidos",
+  "details": [ { "path": "pageSize", "message": "Too big: expected number to be &lt;=100" } ],
+  "requestId": "..." } }</pre>
+
+  <h2>Rotas</h2>
+  <table>
+    <thead><tr><th style="width:46%">Método e rota</th><th style="width:15%">Acesso</th><th>O que faz</th></tr></thead>
+    <tbody>
+      <tr><td class="m">POST /oauth/authorize</td><td>público</td><td>Login com PKCE, devolve o código</td></tr>
+      <tr><td class="m">POST /oauth/token</td><td>público</td><td>Troca código, refresh ou credenciais por token</td></tr>
+      <tr><td class="m">POST /oauth/revoke</td><td>público</td><td>Revoga a família do refresh token</td></tr>
+      <tr><td class="m">GET /oauth/jwks</td><td>público</td><td>Chaves públicas</td></tr>
+      <tr><td class="m">POST /api/v1/auth/register</td><td>público</td><td>Cadastro de cliente</td></tr>
+      <tr><td class="m">GET /api/v1/auth/me</td><td>usuário</td><td>Usuário atual</td></tr>
+      <tr><td class="m">GET /api/v1/catalog/products</td><td>público</td><td>Busca: q, category, minPrice, maxPrice, sort, page, pageSize</td></tr>
+      <tr><td class="m">GET /api/v1/catalog/products/{id}</td><td>público</td><td>Detalhe</td></tr>
+      <tr><td class="m">POST /api/v1/catalog/products</td><td>admin</td><td>Cria produto</td></tr>
+      <tr><td class="m">PATCH /api/v1/catalog/products/{id}</td><td>admin</td><td>Atualiza campos</td></tr>
+      <tr><td class="m">DELETE /api/v1/catalog/products/{id}</td><td>admin</td><td>Desativa</td></tr>
+      <tr><td class="m">GET/POST /api/v1/catalog/categories</td><td>público / admin</td><td>Lista e cria categorias</td></tr>
+      <tr><td class="m">GET /api/v1/inventory?productIds=</td><td>público</td><td>Saldos</td></tr>
+      <tr><td class="m">PUT /api/v1/inventory/{id}</td><td>admin</td><td>Define o disponível</td></tr>
+      <tr><td class="m">GET /api/v1/cart</td><td>usuário</td><td>Carrinho com preços atuais</td></tr>
+      <tr><td class="m">POST /api/v1/cart/items</td><td>usuário</td><td>Adiciona</td></tr>
+      <tr><td class="m">PATCH /api/v1/cart/items/{productId}</td><td>usuário</td><td>Altera quantidade (0 remove)</td></tr>
+      <tr><td class="m">DELETE /api/v1/cart</td><td>usuário</td><td>Esvazia</td></tr>
+      <tr><td class="m">POST /api/v1/orders</td><td>usuário</td><td>Checkout (202)</td></tr>
+      <tr><td class="m">GET /api/v1/orders</td><td>usuário</td><td>Lista; <code>scope=all</code> para admin</td></tr>
+      <tr><td class="m">GET /api/v1/orders/{id}</td><td>usuário</td><td>Detalhe com histórico</td></tr>
+      <tr><td class="m">POST /api/v1/orders/{id}/cancel</td><td>usuário</td><td>Cancela antes do pagamento</td></tr>
+      <tr><td class="m">PATCH /api/v1/orders/{id}/status</td><td>admin</td><td>SHIPPED, DELIVERED ou CANCELLED</td></tr>
+      <tr><td class="m">GET /api/v1/payments/orders/{orderId}</td><td>usuário</td><td>Pagamentos do pedido</td></tr>
+      <tr><td class="m">GET /api/v1/notifications</td><td>usuário</td><td>Lista (<code>unread=true</code>)</td></tr>
+      <tr><td class="m">GET /api/v1/notifications/unread</td><td>usuário</td><td>Contador</td></tr>
+      <tr><td class="m">POST /api/v1/notifications/{id}/read</td><td>usuário</td><td>Marca como lida</td></tr>
+      <tr><td class="m">POST /api/v1/notifications/read-all</td><td>usuário</td><td>Marca todas</td></tr>
+      <tr><td class="m">GET /health</td><td>público</td><td>Saúde do Redis e de cada serviço: 200 com <code>status: "ok"</code> ou 503 com <code>"degraded"</code> (usada pela página Serviços)</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Exemplos</h2>
+<pre>curl "http://localhost:8080/api/v1/catalog/products?q=caf%C3%A9&amp;sort=price_asc"
+
+curl -X POST http://localhost:8080/oauth/token -H "Content-Type: application/json" \
+  -d '{"grant_type":"refresh_token","refresh_token":"&lt;refresh&gt;","client_id":"cesto-web"}'
+
+curl -X POST http://localhost:8080/api/v1/cart/items -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" -d '{"productId":"&lt;id&gt;","quantity":2}'
+
+curl -X PATCH http://localhost:8080/api/v1/orders/&lt;id&gt;/status -H "Authorization: Bearer $ADMIN" \
+  -H "Content-Type: application/json" -d '{"status":"SHIPPED","note":"Coletado"}'
+
+curl http://localhost:8080/health</pre>
+  <p>O arquivo <code>scripts/smoke.mjs</code> faz o fluxo inteiro (PKCE, carrinho, pedido, recusa, falta de estoque, refresh, administração) e serve de exemplo de cliente.</p>
+</section>
+
+<!-- 8 -->
+<section class="capitulo">
+  <header class="abertura"><span class="num">8</span><h1>Configuração</h1><p>Todas as variáveis do <code>.env</code> e o que revisar antes de abrir a loja ao público.</p></header>
+
+  <h2>Variáveis do .env</h2>
+  <table>
+    <thead><tr><th style="width:36%">Variável</th><th style="width:30%">Padrão</th><th>O que faz</th></tr></thead>
+    <tbody>
+      <tr><td class="m">APP_PORT</td><td class="m">8080</td><td>Porta da interface</td></tr>
+      <tr><td class="m">GATEWAY_PORT</td><td class="m">8000</td><td>Porta da API direta</td></tr>
+      <tr><td class="m">DB_USER / DB_PASSWORD</td><td class="m">cesto / sem padrão</td><td>Credenciais do PostgreSQL</td></tr>
+      <tr><td class="m">DB_HOST / DB_PORT</td><td class="m">localhost / 5432</td><td>Banco no desenvolvimento sem Docker</td></tr>
+      <tr><td class="m">REDIS_URL</td><td class="m">redis://localhost:6379</td><td>Redis no desenvolvimento sem Docker</td></tr>
+      <tr><td class="m">SERVICE_CLIENT_ID / SERVICE_CLIENT_SECRET</td><td class="m">cesto-internal / sem padrão</td><td>Cliente OAuth2 entre serviços</td></tr>
+      <tr><td class="m">AUTH_ISSUER / AUTH_AUDIENCE</td><td class="m">cesto-auth / cesto-api</td><td>Emissor e público dos JWT</td></tr>
+      <tr><td class="m">ACCESS_TOKEN_TTL</td><td class="m">900</td><td>Validade do access token (s)</td></tr>
+      <tr><td class="m">REFRESH_TOKEN_TTL</td><td class="m">2592000</td><td>Validade do refresh token (s)</td></tr>
+      <tr><td class="m">WEB_REDIRECT_URIS</td><td class="m">http://localhost:8080/callback</td><td>Endereços de retorno permitidos (vírgulas)</td></tr>
+      <tr><td class="m">CORS_ORIGINS</td><td class="m">http://localhost:8080</td><td>Origens aceitas (vírgulas)</td></tr>
+      <tr><td class="m">SEED_DEMO</td><td class="m">true</td><td>Dados de demonstração</td></tr>
+      <tr><td class="m">DEMO_PASSWORD</td><td class="m">Cesto@2026</td><td>Senha das contas de demonstração</td></tr>
+      <tr><td class="m">PAYMENT_DECLINE_ABOVE_CENTS</td><td class="m">500000</td><td>Recusa cobranças acima deste valor</td></tr>
+      <tr><td class="m">PAYMENT_DELAY_MS</td><td class="m">800</td><td>Latência simulada do pagamento</td></tr>
+      <tr><td class="m">RATE_LIMIT_MAX / RATE_LIMIT_WINDOW</td><td class="m">300 / 1 minute</td><td>Limite por IP no gateway</td></tr>
+      <tr><td class="m">LOG_LEVEL</td><td class="m">info</td><td>fatal, error, warn, info, debug, trace ou silent</td></tr>
+    </tbody>
+  </table>
+  <p>O <code>.env.example</code> também traz <code>http://localhost:5173</code> em <code>WEB_REDIRECT_URIS</code> e <code>CORS_ORIGINS</code>, para a interface do <code>npm run dev</code>. Cada serviço valida a própria configuração com Zod ao iniciar (<code>src/env.js</code>) e para com uma mensagem clara se algo estiver faltando.</p>
+
+  <h2>Checklist para produção</h2>
+  <ul>
+    <li>Senhas fortes em <code>DB_PASSWORD</code> e <code>SERVICE_CLIENT_SECRET</code> (os scripts já geram).</li>
+    <li><code>SEED_DEMO=false</code> e uma conta de administrador própria.</li>
+    <li>HTTPS na frente da interface, e <code>WEB_REDIRECT_URIS</code> / <code>CORS_ORIGINS</code> com o domínio real.</li>
+    <li>Gateway de pagamento real no lugar do simulado.</li>
+    <li>Backup diário dos seis bancos e persistência do Redis (o compose já liga o AOF).</li>
+    <li>Não publique a porta do gateway se só a interface for usada. A página Serviços e o <code>/health</code> são públicos; se não quiser expor o estado interno, bloqueie <code>/health</code> no proxy.</li>
+  </ul>
+</section>
+
+<!-- 9 -->
+<section class="capitulo">
+  <header class="abertura"><span class="num">9</span><h1>Personalizar e estender</h1><p>Onde mexer para acrescentar rotas, eventos, serviços e um provedor de pagamento.</p></header>
+
+  <h2>Adicionar uma rota</h2>
+  <ol class="passos">
+    <li>Declare o contrato em <code>packages/contracts/src/api.js</code>, reaproveitando ou criando esquemas em <code>domains/</code>.</li>
+    <li>Registre no serviço: <code>route(app, api.catalog.novaRota, handler)</code>.</li>
+    <li>Reinicie o serviço (o <code>npm run dev</code> recarrega sozinho). Não há compilação: o handler, o cliente da interface e o OpenAPI passam a conhecer a rota na hora.</li>
+  </ol>
+
+  <h2>Adicionar um evento</h2>
+  <ol class="passos">
+    <li>Acrescente o esquema em <code>eventSchemas</code> (<code>packages/contracts/src/events.js</code>).</li>
+    <li>No serviço que publica, grave no outbox dentro da transação: <code>outbox(tx, createEnvelope('nome.evento', payload))</code>.</li>
+    <li>No serviço que consome, inclua o handler em <code>bus.subscribe({ 'nome.evento': ... })</code> usando a deduplicação por <code>processed_events</code>.</li>
+  </ol>
+
+  <h2>Adicionar um serviço</h2>
+  <ol class="passos">
+    <li>Copie um serviço parecido em <code>services/</code> e troque o nome no <code>package.json</code>.</li>
+    <li>Se tiver banco, crie <code>cesto_novo</code> em <code>docker/postgres/init.sql</code>, ajuste o <code>schema.prisma</code> e gere a migração com <code>npx prisma migrate dev</code> dentro da pasta do serviço.</li>
+    <li>Inclua o serviço na lista de <code>workspaces</code>, em <code>scripts/dev.mjs</code>, <code>scripts/generate.mjs</code> e <code>scripts/migrate.mjs</code>.</li>
+    <li>Adicione o bloco no <code>docker-compose.yml</code> e o prefixo em <code>services/gateway/src/routes.js</code>.</li>
+  </ol>
+
+  <h2>Trocar o pagamento simulado</h2>
+<pre><span class="c">/** @implements {PaymentGateway} */</span>
+<span class="k">export class</span> MeuProvedor {
+  name = <span class="s">'meu-provedor'</span>;
+  <span class="c">/** @param {ChargeRequest} request @returns {Promise&lt;ChargeResult&gt;} */</span>
+  <span class="k">async</span> charge(request) { ... }
+  <span class="c">/** @param {string} reference @param {number} amountCents */</span>
+  <span class="k">async</span> refund(reference, amountCents) { ... }
+}</pre>
+  <p>A classe precisa ter <code>name</code>, <code>charge</code> e <code>refund</code>, como o <code>SimulatedGateway</code> de <code>services/payments/src/gateway.js</code>. Troque <code>new SimulatedGateway(...)</code> por <code>new MeuProvedor(...)</code> em <code>services/payments/src/main.js</code>. A chave de idempotência enviada é o id do pedido.</p>
+
+  <h2>Imagens, marca e interface</h2>
+  <ul>
+    <li>Produtos aceitam <code>imageUrl</code> (caminho ou URL de até 500 caracteres). Sem ele, a interface procura <code>apps/web/public/produtos/&lt;slug&gt;.svg</code>; se não achar, mostra um espaço neutro.</li>
+    <li>Para trocar uma ilustração, substitua o SVG do slug. O gerador das 16 ilustrações fica em <code>.design/ilustracoes/gerar.py</code>.</li>
+    <li>As cores da interface, nos dois temas, ficam em variáveis no topo de <code>apps/web/src/styles.css</code>.</li>
+    <li>As fontes ficam em <code>apps/web/public/fonts</code>, com os arquivos de licença OFL.</li>
+    <li>A logo fica em <code>docs/images/logo.svg</code> e <code>apps/web/public/favicon.svg</code>.</li>
+    <li>Os manuais em PDF são gerados de <code>docs/fonte/</code> com <code>node docs/fonte/gerar_pdfs.mjs</code> (requer o Playwright com o Chromium).</li>
+  </ul>
+</section>
+
+<!-- 10 -->
+<section class="capitulo">
+  <header class="abertura"><span class="num">10</span><h1>Testes e qualidade</h1><p>O que cada comando de teste cobre e o que a integração contínua executa.</p></header>
+
+  <h2>Testes automatizados</h2>
+  <table id="tabela-testes">
+    <thead><tr><th style="width:32%">Comando</th><th>O que cobre</th></tr></thead>
+    <tbody>
+      <tr><td class="m">npm test</td><td>Contratos (URLs, DTOs, esquemas, eventos), núcleo HTTP (validação, envelope, JWT, papéis, escopos, mapeamento de erros), outbox, saga e preços, PKCE e escopos, carrinho, notificações</td></tr>
+      <tr><td class="m">TEST_REDIS_URL=... npm test</td><td>Inclui o barramento com Redis real: entrega, confirmação e nova tentativa</td></tr>
+      <tr id="linha-check"><td class="m">npm run check</td><td><code>node --check</code> em todos os arquivos <code>.js</code> e <code>.mjs</code> de <code>packages/</code>, <code>services/</code> e <code>scripts/</code> (erros de sintaxe)</td></tr>
+      <tr><td class="m">npm run smoke</td><td>21 verificações ponta a ponta com a API rodando</td></tr>
+    </tbody>
+  </table>
+  <p>Sem compilador, os erros que o TypeScript pegava antes aparecem agora nos testes e na validação dos contratos em tempo de execução. Rode <code>npm test</code> antes de cada commit.</p>
+
+  <h2>Integração contínua</h2>
+  <p id="txt-ci">A cada push na <code>main</code> e a cada pull request, o GitHub Actions (<code>.github/workflows/ci.yml</code>, Node.js 22) instala as dependências com <code>npm ci --ignore-scripts</code>, gera os clientes Prisma (<code>npm run generate</code>), constrói a interface (<code>npm run build</code>, que só existe em <code>apps/web</code>), roda <code>npm run check</code> e os testes com PostgreSQL e Redis reais, cria os bancos com <code>docker/postgres/init.sql</code>, aplica as migrações, sobe os oito serviços com <code>npm run start:local</code>, executa o teste ponta a ponta (<code>npm run smoke</code>) e constrói as duas imagens Docker. Os serviços não têm etapa de compilação.</p>
+</section>
+
+<!-- 11 -->
+<section class="capitulo">
+  <header class="abertura"><span class="num">11</span><h1>Solução de problemas</h1><p>Sintomas comuns, a causa provável e onde procurar quando algo não bate.</p></header>
+
+  <h2>Problemas comuns</h2>
+  <table>
+    <thead><tr><th style="width:32%">Sintoma</th><th style="width:26%">Causa provável</th><th>Como resolver</th></tr></thead>
+    <tbody>
+      <tr><td><code>defina DB_PASSWORD no .env</code></td><td><code>.env</code> ausente</td><td>Rode o script de início ou copie o <code>.env.example</code></td></tr>
+      <tr><td>Porta 8080 ocupada</td><td>Outro programa na porta</td><td>Troque <code>APP_PORT</code> no <code>.env</code></td></tr>
+      <tr><td>Login devolve <code>invalid_grant</code> sobre <code>redirect_uri</code></td><td>Endereço diferente do cadastrado</td><td>Inclua o endereço em <code>WEB_REDIRECT_URIS</code> e reinicie o auth</td></tr>
+      <tr><td>Pedido parado em Reservando</td><td>inventory parado ou sem Redis</td><td><code>docker compose logs inventory</code>, <code>/health</code> ou a página Serviços</td></tr>
+      <tr><td>401 em todas as rotas depois de trocar as chaves</td><td>Tokens antigos</td><td>Saia e entre de novo</td></tr>
+      <tr><td>Configuração inválida ao iniciar</td><td>Variável ausente ou fora do formato</td><td>A mensagem diz qual; corrija no <code>.env</code></td></tr>
+      <tr><td>Eventos na dead-letter</td><td>Handler falhou 5 vezes</td><td><code>XRANGE cesto:events:dead-letter - +</code> mostra o evento e o motivo</td></tr>
+      <tr><td>Prisma não encontra o cliente</td><td>Clientes não gerados</td><td><code>npm run generate</code></td></tr>
+      <tr><td><code>SyntaxError</code> ou <code>ERR_UNKNOWN_FILE_EXTENSION ".ts"</code> ao iniciar um serviço</td><td>Node.js anterior ao 22.18, sem remoção de tipos</td><td>Use o Node.js 22.18 ou mais novo (<code>node -v</code>)</td></tr>
+      <tr><td>Guardados ou endereço sumiram</td><td>Outro navegador ou dados do site apagados</td><td>Ficam só no navegador; não há cópia no servidor</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Onde olhar</h2>
+  <ul>
+    <li>A página Serviços e o <code>GET /health</code> no gateway mostram o Redis e cada serviço.</li>
+    <li>Os logs são JSON com <code>service</code> e <code>reqId</code>; filtre pelo <code>x-request-id</code> da resposta.</li>
+    <li>No Redis, <code>XINFO GROUPS cesto:events:order.placed</code> mostra as pendências por serviço.</li>
+    <li>No banco, <code>SELECT * FROM outbox_events WHERE published_at IS NULL</code> mostra os eventos que ainda não saíram.</li>
+  </ul>
+</section>
+
+<script src="sumario.js"></script>
+</body>
+</html>

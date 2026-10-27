@@ -6,8 +6,6 @@ COPY . .
 ARG DATABASE_URL="postgresql://build:build@localhost:5432/build"
 RUN npm ci --ignore-scripts --no-audit --no-fund \
  && npm run generate \
- && npm run build -w packages/contracts -w packages/core -w packages/bus \
- && for s in auth catalog inventory cart orders payments notifications gateway; do npm run build -w services/$s; done \
  && cd services/auth && node /app/node_modules/prisma/build/index.js version
 
 FROM node:22-alpine

@@ -4,10 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "dev": "tsx watch --env-file-if-exists=../../.env src/main.ts",
-    "start": "node dist/main.js",
+    "dev": "node --watch --env-file-if-exists=../../.env src/main.js",
+    "start": "node src/main.js",
     "migrate": "prisma migrate deploy",
     "migrate:dev": "prisma migrate dev"
   },

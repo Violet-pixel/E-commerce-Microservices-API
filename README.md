@@ -9,14 +9,14 @@
 </p>
 
 <p align="center">
-  TypeScript 5.9, Node.js 22, Fastify 5, Prisma 7, PostgreSQL 16, Redis 7 Streams, Zod 4, OAuth2 com PKCE, React 19 com Vite, Docker Compose e Vitest
+  JavaScript (módulos ES), Node.js 22.18+, Fastify 5, Prisma 7, PostgreSQL 16, Redis 7 Streams, Zod 4, OAuth2 com PKCE, React 19 com Vite, Docker Compose e Vitest
 </p>
 
-<p align="center"><img src="docs/images/tela-loja.png" alt="Loja com catálogo ilustrado, filtros por categoria, preço e estoque de cada produto"></p>
+<p align="center"><img src="docs/images/tela-loja.png" alt="Loja com filtros laterais por seção, faixa de preço e estoque, etiquetas de preço e botão de guardar em cada produto"></p>
 
-Versão 1.1.0. Dois manuais em PDF acompanham o projeto:
+Versão 1.2.0. Dois manuais em PDF acompanham o projeto:
 
-- [`Manual-Cesto.pdf`](Manual-Cesto.pdf) (cópia em [`docs/`](docs/Manual-Cesto.pdf)): instalação, cada tela, arquitetura, OAuth2, contratos tipados, API, configuração, como estender o projeto, testes e solução de problemas.
+- [`Manual-Cesto.pdf`](Manual-Cesto.pdf) (cópia em [`docs/`](docs/Manual-Cesto.pdf)): instalação, cada tela, arquitetura, OAuth2, contratos Zod, API, configuração, como estender o projeto, testes e solução de problemas.
 - [`Banco-de-Dados-Cesto.pdf`](Banco-de-Dados-Cesto.pdf) (cópia em [`docs/`](docs/Banco-de-Dados-Cesto.pdf)): diagrama de cada banco, todas as tabelas com campos, tipos, chaves e índices, máquinas de estado, outbox, chaves do Redis e como preparar o PostgreSQL.
 
 ## O que é
@@ -26,11 +26,27 @@ O Cesto cobre o caminho inteiro de uma loja, dividido em oito serviços: gateway
 - O pedido é uma saga. O checkout cria o pedido, o estoque reserva os itens, o pagamento cobra e o pedido é confirmado. Se faltar estoque ou o pagamento for recusado, as etapas anteriores são desfeitas e o estoque volta.
 - Os eventos passam por Redis Streams com grupos de consumidores. Um outbox transacional garante que o evento só sai se o dado foi gravado; quem consome descarta entregas repetidas, tenta de novo quando falha e manda para a dead-letter depois de 5 tentativas.
 - O login usa OAuth2: Authorization Code com PKCE para a interface, Client Credentials entre serviços, JWT RS256 com JWKS, refresh token com rotação e detecção de reuso, escopos por papel.
-- Cada rota é um contrato Zod. O mesmo contrato valida a entrada no servidor, tipa o handler, gera o OpenAPI e alimenta o cliente HTTP tipado da interface.
+- Cada rota é um contrato Zod. O mesmo contrato valida a entrada e a saída no servidor, gera o OpenAPI e alimenta o cliente HTTP da interface.
 - Erros de negócio (`NotFound`, `Conflict`, `InsufficientStock`, `InvalidTransition` e outros) viram respostas HTTP padronizadas, com código, mensagem, detalhes por campo e `requestId`.
-- A loja web tem catálogo com busca, carrinho, checkout, acompanhamento do pedido etapa por etapa, notificações e painel administrativo de produtos, estoque e expedição.
+- A loja web tem catálogo com filtros e busca, produtos guardados, carrinho, checkout em etapas, acompanhamento da saga etapa por etapa, notificações, painel administrativo com indicadores e exportação em CSV e uma página com a saúde de cada serviço.
 - Cada um dos 16 produtos de demonstração tem uma ilustração própria em SVG (`apps/web/public/produtos/<slug>.svg`), gravada em `imageUrl` pelo seed. Um produto com `imageUrl` próprio mostra essa imagem; sem ela, a loja tenta a ilustração do slug e, se não houver, mostra um espaço neutro.
 - Para operar: health checks, rate limit no gateway, logs estruturados, desligamento gracioso, migrações versionadas e Swagger em `/api/docs`.
+
+## Novidades da 1.2.0
+
+- **Todo o código agora é JavaScript.** Os oito serviços, os três pacotes e a interface deixaram o TypeScript. Os serviços rodam direto de `src/` com `node`, sem etapa de compilação; os contratos continuam em Zod, com JSDoc nos pontos de entrada. Node.js 22.18 ou mais novo é o mínimo, porque o cliente Prisma gerado é importado direto pelo Node.
+- **Interface nova.** Mesma tipografia do Lume (Literata, Public Sans e IBM Plex Mono), papel cru, verde como única cor de ação e etiquetas de preço de empório. Tema claro e escuro, foco visível em tudo e layout próprio para celular.
+- **Loja:** filtros laterais por seção, faixa de preço e "só com estoque", com os filtros ativos em etiquetas removíveis; busca com atalho <kbd>/</kbd>; aviso de "restam N" quando o estoque está acabando; visualização rápida do produto com quantidade.
+- **Guardados:** o coração em cada produto guarda para depois. A lista fica no navegador, separada por conta, e tem "pôr tudo no carrinho".
+- **Carrinho e checkout:** carrinho em forma de cupom, "guardar" tira o item do carrinho sem perdê-lo, e o checkout tem três etapas (Entrega, Pagamento, Revisão) e lembra o último endereço.
+- **Pedidos:** a saga aparece numa trilha com o serviço que resolveu cada etapa (`orders`, `inventory`, `payments`) e o motivo quando o pedido cai; "comprar de novo" devolve os itens ao carrinho.
+- **Administração:** receita confirmada, ticket médio, pedidos para enviar e produtos com estoque baixo no topo; filtros de pedido, exportação em CSV, busca e filtro de estoque baixo nos produtos.
+- **Serviços:** página pública que lê `/health` do gateway a cada 5 segundos e mostra cada serviço, o Redis e o tempo de resposta.
+
+<p align="center">
+  <img src="docs/images/tela-produto.png" width="49%" alt="Visualização rápida do produto com quantidade e etiqueta de preço">
+  <img src="docs/images/tela-guardados.png" width="49%" alt="Lista de produtos guardados para depois">
+</p>
 
 ## Ver rodando
 
@@ -64,13 +80,13 @@ Para provocar as falhas que a saga trata:
 
 | Quero ver | Como fazer |
 |---|---|
-| Pagamento recusado | No checkout, escolha Cartão e marque "Simular cartão recusado" |
+| Pagamento recusado | No checkout, escolha Cartão e ligue "Simular cartão recusado" |
 | Falta de estoque | Compre a Prensa francesa 600 ml, que começa zerada |
 | Limite de valor | Feche um pedido acima de `PAYMENT_DECLINE_ABOVE_CENTS` (padrão R$ 5.000,00) |
 
 <p align="center">
-  <img src="docs/images/tela-carrinho.png" width="49%" alt="Carrinho com quantidade e total">
-  <img src="docs/images/tela-checkout.png" width="49%" alt="Checkout com endereço e forma de pagamento">
+  <img src="docs/images/tela-carrinho.png" width="49%" alt="Carrinho em forma de cupom com quantidade, guardar e total">
+  <img src="docs/images/tela-checkout.png" width="49%" alt="Revisão do pedido, última etapa do checkout">
 </p>
 
 ## Instalar
@@ -90,16 +106,15 @@ Suba com `SEED_DEMO=false` num banco vazio. Os clientes OAuth2 continuam sendo c
 
 ### Sem Docker, para desenvolver
 
-Com Node.js 22, PostgreSQL 16 e Redis 7 instalados:
+Com Node.js 22.18 ou mais novo, PostgreSQL 16 e Redis 7 instalados:
 
 ```bash
 npm ci
 cp .env.example .env                 # ajuste DB_USER, DB_PASSWORD e DB_HOST
 psql -U postgres -f docker/postgres/init.sql
 npm run generate                     # clientes Prisma de cada serviço
-npm run build
 npm run migrate                      # aplica as migrações nos seis bancos
-npm run dev                          # sobe os oito serviços com recarga automática
+npm run dev                          # sobe os oito serviços com node --watch (sem compilar nada)
 npm run dev -w apps/web              # interface em http://localhost:5173
 ```
 
@@ -159,8 +174,8 @@ Toda resposta segue o mesmo envelope:
 | `GET /api/v1/notifications`, `/unread`, `POST .../{id}/read`, `/read-all` | Notificações |
 
 <p align="center">
-  <img src="docs/images/tela-admin-pedidos.png" width="49%" alt="Painel administrativo com pedidos de todos os clientes">
-  <img src="docs/images/tela-admin-produtos.png" width="49%" alt="Cadastro de produtos e ajuste de preço e estoque">
+  <img src="docs/images/tela-admin-pedidos.png" width="49%" alt="Administração com indicadores, filtros de pedido e exportação em CSV">
+  <img src="docs/images/tela-admin-produtos.png" width="49%" alt="Produtos com busca, filtro de estoque baixo e cadastro recolhível">
 </p>
 
 ## Por dentro
@@ -205,14 +220,14 @@ flowchart LR
 5. O evento `order.placed` esvazia o carrinho, e cada etapa vira uma notificação para o cliente. Depois a loja marca o pedido como Enviado e Entregue.
 
 <p align="center">
-  <img src="docs/images/tela-pedidos.png" alt="Pedidos com as etapas da saga numa linha com marcos">
+  <img src="docs/images/tela-pedidos.png" alt="Pedidos com a trilha da saga e o serviço de cada etapa">
 </p>
 
-### Tipagem e validação
+### Contratos e validação
 
 Os contratos ficam em [`packages/contracts`](packages/contracts) e são a única fonte da verdade:
 
-```ts
+```js
 export const api = {
   orders: {
     checkout: defineEndpoint({
@@ -234,41 +249,46 @@ const order = await request(api.orders.checkout, { body: { shippingAddress, paym
 
 | Peça | O que entrega |
 |---|---|
-| `Dto<S>`, `CreateDto<T>`, `UpdateDto<T>`, `Paginated<T>`, `ApiResponse<T>`, `Result<T, E>` | DTOs genéricos usados por todos os serviços |
-| `defineEndpoint` + `PathParams<'/orders/:id'>` | Parâmetros de rota extraídos do caminho em tempo de compilação |
-| `EndpointRequest<E>` / `EndpointResponse<E>` | Requisição e resposta inferidas do contrato, no servidor e no cliente |
-| `route(app, endpoint, handler)` | Valida params, query e body com Zod, checa token, papel e escopos e valida a saída |
-| `callEndpoint` / `ServiceClient` | Cliente HTTP tipado, com token de serviço em cache para chamadas internas |
+| `defineEndpoint` | Método, caminho, autenticação, escopos e esquemas Zod de params, query, body e resposta num só objeto |
+| `paginated(schema)`, `toPage`, envelope `{ ok, data }` | DTOs de página e de resposta usados por todos os serviços |
+| `route(app, endpoint, handler)` | Valida params, query e body com Zod, checa token, papel e escopos e valida a saída antes de responder |
+| `callEndpoint` / `ServiceClient` | Cliente HTTP que monta a URL a partir do contrato, com token de serviço em cache para chamadas internas |
 | `DomainError` e subclasses | Erros de negócio com código estável e status HTTP definido num só lugar |
 | `eventSchemas` | Cada evento tem esquema próprio, validado ao publicar e ao consumir |
+| JSDoc (`@typedef`, `@template`) | Descreve os pontos de entrada para o editor completar e checar quem quiser `// @ts-check` |
 
 ### Estrutura
 
 ```text
-packages/contracts/   esquemas Zod, DTOs genéricos, contratos das rotas, eventos e cliente tipado
-packages/core/        servidor Fastify, rotas tipadas, OAuth2 (verificação), erros de domínio, outbox, OpenAPI
+packages/contracts/   esquemas Zod, DTOs, contratos das rotas, eventos e cliente HTTP
+packages/core/        servidor Fastify, rotas validadas, OAuth2 (verificação), erros de domínio, outbox, OpenAPI
 packages/bus/         barramento de eventos em Redis Streams com novas tentativas e dead-letter
-services/             gateway, auth, catalog, inventory, cart, orders, payments, notifications
+services/             gateway, auth, catalog, inventory, cart, orders, payments, notifications (rodam de src/)
   */prisma/           esquema e migrações de cada banco
-apps/web/             loja e painel em React + Vite
+apps/web/             loja e painel em React + Vite (JSX)
 docker/               Dockerfiles, Nginx e criação dos bancos
 scripts/              desenvolvimento local, migrações, geração do Prisma e teste ponta a ponta
-docs/                 manuais em PDF e imagens do README
+docs/                 manuais em PDF, fonte HTML deles (docs/fonte) e imagens do README
 .github/workflows/    CI
 ```
 
 ### Como estender
 
-1. Nova rota: declare o contrato em `packages/contracts/src/api.ts` e registre com `route(app, api.x.y, handler)` no serviço. Validação, autorização, OpenAPI e tipos do cliente vêm juntos.
+1. Nova rota: declare o contrato em `packages/contracts/src/api.js` e registre com `route(app, api.x.y, handler)` no serviço. Validação, autorização, OpenAPI e o cliente HTTP vêm juntos.
 2. Novo evento: acrescente o esquema em `eventSchemas`, grave no outbox de quem publica e inscreva o handler com `bus.subscribe` em quem consome.
-3. Gateway de pagamento real: implemente a interface `PaymentGateway` em `services/payments/src/gateway.ts` e troque o `SimulatedGateway` no `main.ts`.
-4. Novo serviço: copie um serviço existente, crie o banco em `docker/postgres/init.sql`, adicione o bloco no `docker-compose.yml` e o prefixo em `services/gateway/src/routes.ts`.
+3. Gateway de pagamento real: escreva uma classe com o método `charge` descrito no `@typedef PaymentGateway` de `services/payments/src/gateway.js` e troque o `SimulatedGateway` no `main.js`.
+4. Novo serviço: copie um serviço existente, crie o banco em `docker/postgres/init.sql`, adicione o bloco no `docker-compose.yml` e o prefixo em `services/gateway/src/routes.js`.
 
 O manual, capítulo 9, traz o passo a passo de cada caso com exemplos.
 
 <p align="center">
-  <img src="docs/images/tela-notificacoes.png" width="49%" alt="Notificações geradas pelos eventos do pedido">
-  <img src="docs/images/tela-entrada.png" width="49%" alt="Entrada com OAuth2 e PKCE">
+  <img src="docs/images/tela-notificacoes.png" width="49%" alt="Avisos gerados pelos eventos do pedido">
+  <img src="docs/images/tela-entrada.png" width="49%" alt="Entrada com contas de demonstração e o passo a passo do PKCE">
+</p>
+
+<p align="center">
+  <img src="docs/images/tela-servicos.png" width="49%" alt="Saúde de cada serviço lida do /health do gateway">
+  <img src="docs/images/tela-escuro.png" width="49%" alt="Loja no tema escuro">
 </p>
 
 ## Testes
@@ -276,11 +296,11 @@ O manual, capítulo 9, traz o passo a passo de cada caso com exemplos.
 ```bash
 npm test                             # testes unitários e de integração (Vitest)
 TEST_REDIS_URL=redis://localhost:6379 npm test   # inclui o barramento com Redis real
-npm run typecheck                    # TypeScript estrito em todos os pacotes
+npm run check                        # node --check em todos os arquivos JavaScript
 API_URL=http://localhost:8000 npm run smoke      # 21 verificações ponta a ponta na API rodando
 ```
 
-A cada push, o GitHub Actions compila tudo, roda os testes, aplica as migrações, sobe os serviços, executa o teste ponta a ponta e constrói as imagens Docker.
+A cada push, o GitHub Actions gera os clientes Prisma, monta a interface, verifica a sintaxe, roda os testes, aplica as migrações, sobe os serviços, executa o teste ponta a ponta e constrói as imagens Docker.
 
 ## Componentes de terceiros
 
@@ -289,15 +309,15 @@ O Cesto depende de componentes com licenças próprias, que continuam valendo pa
 | Componente | Uso no projeto | Licença |
 |---|---|---|
 | [Fastify](https://fastify.dev/) | Servidor HTTP dos serviços e proxy do gateway | MIT |
-| [Prisma](https://www.prisma.io/) | ORM, migrações e cliente tipado | Apache-2.0 |
-| [Zod](https://zod.dev/) | Validação e inferência de tipos | MIT |
+| [Prisma](https://www.prisma.io/) | ORM, migrações e cliente de banco | Apache-2.0 |
+| [Zod](https://zod.dev/) | Validação de entrada, saída e eventos | MIT |
 | [jose](https://github.com/panva/jose) | Assinatura e verificação de JWT e JWKS | MIT |
 | [ioredis](https://github.com/redis/ioredis) | Cliente Redis para Streams, carrinho e rate limit | MIT |
 | [React](https://react.dev/) e [Vite](https://vite.dev/) | Interface web | MIT |
 | [Lucide](https://lucide.dev/) | Ícones da interface | ISC |
-| [Bricolage Grotesque](https://github.com/ateliertriay/bricolage) | Fonte dos títulos da interface e dos manuais | SIL Open Font License 1.1 |
-| [Figtree](https://github.com/erikdkennedy/figtree) | Fonte do texto da interface e dos manuais | SIL Open Font License 1.1 |
-| [Spline Sans Mono](https://github.com/SorkinType/SplineSansMono) | Fonte dos trechos de código nos manuais | SIL Open Font License 1.1 |
+| [Literata](https://github.com/googlefonts/literata) | Fonte dos títulos e nomes de produto, na interface e nos manuais | SIL Open Font License 1.1 |
+| [Public Sans](https://github.com/uswds/public-sans) | Fonte do texto da interface e dos manuais | SIL Open Font License 1.1 |
+| [IBM Plex Mono](https://github.com/IBM/plex) | Fonte de SKUs, números de pedido e trechos de código | SIL Open Font License 1.1 |
 | [Swagger UI](https://github.com/swagger-api/swagger-ui) | Página de documentação da API | Apache-2.0 |
 | [Vitest](https://vitest.dev/) | Testes automatizados | MIT |
 

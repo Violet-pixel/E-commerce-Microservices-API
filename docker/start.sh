@@ -12,4 +12,4 @@ if [ -d prisma/migrations ]; then
     sleep 3
   done
 fi
-exec node dist/main.js
+exec node src/main.js

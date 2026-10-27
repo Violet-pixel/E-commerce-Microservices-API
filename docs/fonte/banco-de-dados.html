@@ -1,0 +1,510 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Cesto: banco de dados</title>
+<link rel="stylesheet" href="estilo.css">
+<style>@page { @top-right { content: 'Banco de dados, versão 1.2.0'; } }</style>
+</head>
+<body>
+
+<section class="capa">
+  <div class="faixa"></div>
+  <img class="logo" src="../images/logo.svg" alt="Cesto">
+  <div class="bloco">
+    <p class="sobretitulo">Documentação · versão 1.2.0</p>
+    <h1>Cesto</h1>
+    <p class="sub">Banco de dados</p>
+    <p class="resumo">Os seis bancos PostgreSQL do projeto: diagramas, tabelas, índices, máquinas de estado, outbox, chaves do Redis e como preparar o ambiente.</p>
+    <div class="pe">
+      <div>Copyright (©) 2026 Clara A. Portes<br>Licença MIT</div>
+      <div class="dir"><strong>Versão 1.2.0</strong><br>Outubro de 2026</div>
+    </div>
+  </div>
+</section>
+
+<nav class="sumario">
+  <h2 class="cab">Sumário</h2>
+  <ol id="lista-sumario"></ol>
+</nav>
+
+<!-- 1 -->
+<section class="capitulo">
+  <header class="abertura"><span class="num">1</span><h1>Visão geral</h1><p>Como os dados estão divididos entre os serviços e as convenções usadas em todos os bancos.</p></header>
+
+  <h2>Um banco por serviço</h2>
+  <p>O Cesto segue o padrão <em>database per service</em>: cada microsserviço é o único dono do seu banco. Assim cada parte pode evoluir, escalar e ter backup separadamente, e uma mudança de tabela não quebra outro serviço.</p>
+  <table>
+    <thead><tr><th style="width:26%">Banco</th><th style="width:18%">Dono</th><th>Conteúdo</th></tr></thead>
+    <tbody>
+      <tr><td class="m">cesto_auth</td><td class="m">auth</td><td>Usuários, clientes OAuth2, códigos, refresh tokens, chaves de assinatura</td></tr>
+      <tr><td class="m">cesto_catalog</td><td class="m">catalog</td><td>Categorias, produtos, outbox</td></tr>
+      <tr><td class="m">cesto_inventory</td><td class="m">inventory</td><td>Saldos, reservas, outbox, eventos processados</td></tr>
+      <tr><td class="m">cesto_orders</td><td class="m">orders</td><td>Pedidos, itens, histórico, outbox, eventos processados</td></tr>
+      <tr><td class="m">cesto_payments</td><td class="m">payments</td><td>Pagamentos, outbox, eventos processados</td></tr>
+      <tr><td class="m">cesto_notifications</td><td class="m">notifications</td><td>Notificações</td></tr>
+    </tbody>
+  </table>
+  <p>Os seis bancos podem ficar no mesmo servidor PostgreSQL 16 (como no Docker Compose) ou em servidores diferentes. Basta apontar o <code>DATABASE_URL</code> de cada serviço. Cada serviço abre a conexão em <code>src/db.js</code>, com o adapter <code>@prisma/adapter-pg</code> e o cliente Prisma gerado por <code>npm run generate</code> em <code>src/generated/prisma</code> (fora do Git). Esse cliente é gerado em TypeScript e o Node.js 22.18 ou mais novo o carrega direto, removendo os tipos; o resto do código é JavaScript.</p>
+
+  <h2>Como os dados se relacionam entre serviços</h2>
+  <p>Não existem chaves estrangeiras entre bancos. As referências cruzadas são identificadores (<code>product_id</code>, <code>order_id</code>, <code>user_id</code>) mantidos por eventos:</p>
+  <ul>
+    <li><code>products.id</code> do catálogo vira <code>stock_items.product_id</code> no estoque pelo evento <code>product.created</code>.</li>
+    <li><code>orders.id</code> é referenciado por <code>reservations.order_id</code>, <code>payments.order_id</code> e <code>notifications.order_id</code>.</li>
+    <li><code>users.id</code> do auth é o <code>sub</code> do JWT e aparece como <code>user_id</code> em pedidos, pagamentos e notificações.</li>
+    <li>Os itens do pedido guardam uma cópia do SKU, do nome e do preço no momento da compra.</li>
+  </ul>
+
+  <h2>Redis</h2>
+  <p>O Redis não é fonte da verdade de nenhum dado de negócio, exceto o carrinho, que é descartável por natureza. Ele guarda os fluxos de eventos, o carrinho e os contadores de rate limit.</p>
+  <div class="nota verde"><span class="rot">Fora do servidor</span><p>Os produtos guardados e o último endereço do checkout, novos na interface 1.2.0, ficam só no navegador, em <code>localStorage</code>: <code>cesto.guardados.&lt;id do usuário&gt;</code> e <code>cesto.endereco</code>. Não há tabela nem chave do Redis para eles.</p></div>
+
+  <h2>Convenções</h2>
+  <table>
+    <thead><tr><th style="width:55%">Regra</th><th>Exemplo</th></tr></thead>
+    <tbody>
+      <tr><td>Tabelas no plural, em snake_case</td><td class="m">order_items</td></tr>
+      <tr><td>Colunas em snake_case; no código, camelCase via <code>@map</code></td><td class="m">price_cents ↔ priceCents</td></tr>
+      <tr><td>Chaves primárias UUID v4</td><td class="m">id UUID</td></tr>
+      <tr><td>Dinheiro em centavos inteiros</td><td class="m">total_cents INTEGER</td></tr>
+      <tr><td>Datas com fuso e milissegundos</td><td class="m">TIMESTAMPTZ(3)</td></tr>
+      <tr><td>Enums nativos do PostgreSQL</td><td class="m">"OrderStatus"</td></tr>
+      <tr><td>Restrições de integridade no banco</td><td class="m">CHECK (available &gt;= 0)</td></tr>
+      <tr><td>Índices nomeados como o Prisma</td><td class="m">orders_user_id_created_at_idx</td></tr>
+    </tbody>
+  </table>
+  <p>Nas tabelas de colunas a seguir, <span class="tag" style="margin:0">PK</span> marca a chave primária e o ponto de interrogação no diagrama marca coluna que aceita nulo.</p>
+</section>
+
+<!-- 2 -->
+<section class="capitulo">
+  <header class="abertura"><span class="num">2</span><h1>cesto_auth</h1><p>Usuários, clientes OAuth2, códigos de autorização, refresh tokens e as chaves que assinam os JWT.</p></header>
+  <h2>Diagrama</h2>
+  <div class="er">
+    <div class="ent"><div class="cab">users</div>
+      <div class="lin pk"><span>id</span><span>uuid PK</span></div><div class="lin"><span>email</span><span>varchar(254) único</span></div><div class="lin"><span>name</span><span>varchar(80)</span></div><div class="lin"><span>password_hash</span><span>text</span></div><div class="lin"><span>role</span><span>Role</span></div><div class="lin"><span>created_at</span><span>timestamptz</span></div><div class="lin"><span>updated_at</span><span>timestamptz</span></div></div>
+    <div class="ent"><div class="cab">authorization_codes</div>
+      <div class="lin pk"><span>code_hash</span><span>char(64) PK</span></div><div class="lin fk"><span>user_id</span><span>uuid → users</span></div><div class="lin"><span>client_id</span><span>varchar(64)</span></div><div class="lin"><span>redirect_uri</span><span>text</span></div><div class="lin"><span>code_challenge</span><span>varchar(128)</span></div><div class="lin"><span>scope</span><span>text</span></div><div class="lin"><span>expires_at</span><span>timestamptz</span></div><div class="lin"><span>used_at</span><span>timestamptz?</span></div><div class="lin"><span>created_at</span><span>timestamptz</span></div></div>
+    <div class="ent"><div class="cab">refresh_tokens</div>
+      <div class="lin pk"><span>id</span><span>uuid PK</span></div><div class="lin"><span>token_hash</span><span>char(64) único</span></div><div class="lin"><span>family_id</span><span>uuid</span></div><div class="lin fk"><span>user_id</span><span>uuid → users</span></div><div class="lin"><span>client_id</span><span>varchar(64)</span></div><div class="lin"><span>scope</span><span>text</span></div><div class="lin"><span>expires_at</span><span>timestamptz</span></div><div class="lin"><span>revoked_at</span><span>timestamptz?</span></div><div class="lin"><span>rotated_at</span><span>timestamptz?</span></div><div class="lin"><span>created_at</span><span>timestamptz</span></div></div>
+    <div class="ent"><div class="cab">oauth_clients</div>
+      <div class="lin pk"><span>id</span><span>varchar(64) PK</span></div><div class="lin"><span>name</span><span>varchar(80)</span></div><div class="lin"><span>secret_hash</span><span>text?</span></div><div class="lin"><span>redirect_uris</span><span>text[]</span></div><div class="lin"><span>grant_types</span><span>text[]</span></div><div class="lin"><span>scopes</span><span>text[]</span></div><div class="lin"><span>created_at</span><span>timestamptz</span></div></div>
+    <div class="ent"><div class="cab">signing_keys</div>
+      <div class="lin pk"><span>kid</span><span>varchar(64) PK</span></div><div class="lin"><span>private_jwk</span><span>jsonb</span></div><div class="lin"><span>public_jwk</span><span>jsonb</span></div><div class="lin"><span>active</span><span>boolean</span></div><div class="lin"><span>created_at</span><span>timestamptz</span></div></div>
+  </div>
+
+  <h2>users</h2>
+  <table><thead><tr><th>Coluna</th><th>Tipo</th><th>Nulo</th><th>Padrão</th><th>Observação</th></tr></thead><tbody>
+    <tr><td class="m">id<span class="pk">PK</span></td><td class="m">UUID</td><td>não</td><td class="m">uuid()</td><td></td></tr>
+    <tr><td class="m">email</td><td class="m">VARCHAR(254)</td><td>não</td><td class="sem">sem padrão</td><td>Único (<code>users_email_key</code>), sempre minúsculo</td></tr>
+    <tr><td class="m">name</td><td class="m">VARCHAR(80)</td><td>não</td><td class="sem">sem padrão</td><td></td></tr>
+    <tr><td class="m">password_hash</td><td class="m">TEXT</td><td>não</td><td class="sem">sem padrão</td><td><code>scrypt$N$sal$hash</code></td></tr>
+    <tr><td class="m">role</td><td class="m">"Role"</td><td>não</td><td class="m">CUSTOMER</td><td>CUSTOMER ou ADMIN</td></tr>
+    <tr><td class="m">created_at</td><td class="m">TIMESTAMPTZ(3)</td><td>não</td><td class="m">now()</td><td></td></tr>
+    <tr><td class="m">updated_at</td><td class="m">TIMESTAMPTZ(3)</td><td>não</td><td class="sem">sem padrão</td><td>Atualizado pelo Prisma</td></tr>
+  </tbody></table>
+
+  <h2>oauth_clients</h2>
+  <table><thead><tr><th>Coluna</th><th>Tipo</th><th>Nulo</th><th>Padrão</th><th>Observação</th></tr></thead><tbody>
+    <tr><td class="m">id<span class="pk">PK</span></td><td class="m">VARCHAR(64)</td><td>não</td><td class="sem">sem padrão</td><td>Ex.: <code>cesto-web</code>, <code>cesto-internal</code></td></tr>
+    <tr><td class="m">name</td><td class="m">VARCHAR(80)</td><td>não</td><td class="sem">sem padrão</td><td></td></tr>
+    <tr><td class="m">secret_hash</td><td class="m">TEXT</td><td>sim</td><td class="sem">sem padrão</td><td>Nulo = cliente público (exige PKCE)</td></tr>
+    <tr><td class="m">redirect_uris</td><td class="m">TEXT[]</td><td>n/a</td><td class="sem">sem padrão</td><td>Endereços de retorno permitidos</td></tr>
+    <tr><td class="m">grant_types</td><td class="m">TEXT[]</td><td>n/a</td><td class="sem">sem padrão</td><td>authorization_code, refresh_token, client_credentials</td></tr>
+    <tr><td class="m">scopes</td><td class="m">TEXT[]</td><td>n/a</td><td class="sem">sem padrão</td><td>Teto de escopos do cliente</td></tr>
+    <tr><td class="m">created_at</td><td class="m">TIMESTAMPTZ(3)</td><td>não</td><td class="m">now()</td><td></td></tr>
+  </tbody></table>
+
+  <h2>authorization_codes</h2>
+  <table><thead><tr><th>Coluna</th><th>Tipo</th><th>Nulo</th><th>Padrão</th><th>Observação</th></tr></thead><tbody>
+    <tr><td class="m">code_hash<span class="pk">PK</span></td><td class="m">CHAR(64)</td><td>não</td><td class="sem">sem padrão</td><td>SHA-256 do código</td></tr>
+    <tr><td class="m">client_id</td><td class="m">VARCHAR(64)</td><td>não</td><td class="sem">sem padrão</td><td></td></tr>
+    <tr><td class="m">user_id</td><td class="m">UUID</td><td>não</td><td class="sem">sem padrão</td><td>FK users, ON DELETE CASCADE</td></tr>
+    <tr><td class="m">redirect_uri</td><td class="m">TEXT</td><td>não</td><td class="sem">sem padrão</td><td>Precisa bater na troca</td></tr>
+    <tr><td class="m">code_challenge</td><td class="m">VARCHAR(128)</td><td>não</td><td class="sem">sem padrão</td><td>Desafio PKCE S256</td></tr>
+    <tr><td class="m">scope</td><td class="m">TEXT</td><td>não</td><td class="sem">sem padrão</td><td>Escopos concedidos</td></tr>
+    <tr><td class="m">expires_at</td><td class="m">TIMESTAMPTZ(3)</td><td>não</td><td class="sem">sem padrão</td><td>Índice; 60 s por padrão</td></tr>
+    <tr><td class="m">used_at</td><td class="m">TIMESTAMPTZ(3)</td><td>sim</td><td class="sem">sem padrão</td><td>Uso único</td></tr>
+    <tr><td class="m">created_at</td><td class="m">TIMESTAMPTZ(3)</td><td>não</td><td class="m">now()</td><td></td></tr>
+  </tbody></table>
+
+  <h2>refresh_tokens</h2>
+  <table><thead><tr><th>Coluna</th><th>Tipo</th><th>Nulo</th><th>Padrão</th><th>Observação</th></tr></thead><tbody>
+    <tr><td class="m">id<span class="pk">PK</span></td><td class="m">UUID</td><td>não</td><td class="m">uuid()</td><td></td></tr>
+    <tr><td class="m">token_hash</td><td class="m">CHAR(64)</td><td>não</td><td class="sem">sem padrão</td><td>Único; SHA-256 do token</td></tr>
+    <tr><td class="m">family_id</td><td class="m">UUID</td><td>não</td><td class="sem">sem padrão</td><td>Índice; une as rotações de um mesmo login</td></tr>
+    <tr><td class="m">client_id</td><td class="m">VARCHAR(64)</td><td>não</td><td class="sem">sem padrão</td><td></td></tr>
+    <tr><td class="m">user_id</td><td class="m">UUID</td><td>não</td><td class="sem">sem padrão</td><td>FK users, ON DELETE CASCADE, índice</td></tr>
+    <tr><td class="m">scope</td><td class="m">TEXT</td><td>não</td><td class="sem">sem padrão</td><td></td></tr>
+    <tr><td class="m">expires_at</td><td class="m">TIMESTAMPTZ(3)</td><td>não</td><td class="sem">sem padrão</td><td>30 dias por padrão</td></tr>
+    <tr><td class="m">revoked_at</td><td class="m">TIMESTAMPTZ(3)</td><td>sim</td><td class="sem">sem padrão</td><td>Logout ou reuso detectado</td></tr>
+    <tr><td class="m">rotated_at</td><td class="m">TIMESTAMPTZ(3)</td><td>sim</td><td class="sem">sem padrão</td><td>Preenchido quando trocado por um novo</td></tr>
+    <tr><td class="m">created_at</td><td class="m">TIMESTAMPTZ(3)</td><td>não</td><td class="m">now()</td><td></td></tr>
+  </tbody></table>
+
+  <h2>signing_keys</h2>
+  <table><thead><tr><th>Coluna</th><th>Tipo</th><th>Nulo</th><th>Padrão</th><th>Observação</th></tr></thead><tbody>
+    <tr><td class="m">kid<span class="pk">PK</span></td><td class="m">VARCHAR(64)</td><td>não</td><td class="sem">sem padrão</td><td>Vai no cabeçalho do JWT</td></tr>
+    <tr><td class="m">private_jwk</td><td class="m">JSONB</td><td>não</td><td class="sem">sem padrão</td><td>Chave privada RSA (proteja o backup)</td></tr>
+    <tr><td class="m">public_jwk</td><td class="m">JSONB</td><td>não</td><td class="sem">sem padrão</td><td>Publicada no JWKS</td></tr>
+    <tr><td class="m">active</td><td class="m">BOOLEAN</td><td>não</td><td class="m">true</td><td>Chave usada para assinar</td></tr>
+    <tr><td class="m">created_at</td><td class="m">TIMESTAMPTZ(3)</td><td>não</td><td class="m">now()</td><td></td></tr>
+  </tbody></table>
+  <div class="nota perigo"><span class="rot">Atenção</span><p>A tabela <code>signing_keys</code> contém material criptográfico. Restrinja o acesso ao banco <code>cesto_auth</code> e criptografe os backups.</p></div>
+</section>
+
+<!-- 3 -->
+<section class="capitulo">
+  <header class="abertura"><span class="num">3</span><h1>cesto_catalog</h1><p>Categorias e produtos da loja, mais o outbox que avisa os outros serviços das mudanças.</p></header>
+  <h2>Diagrama</h2>
+  <div class="er">
+    <div class="ent"><div class="cab">categories</div>
+      <div class="lin pk"><span>id</span><span>uuid PK</span></div><div class="lin"><span>name</span><span>varchar(60)</span></div><div class="lin"><span>slug</span><span>varchar(120) único</span></div><div class="lin"><span>created_at</span><span>timestamptz</span></div></div>
+    <div class="ent larga"><div class="cab">products</div>
+      <div class="lin pk"><span>id</span><span>uuid PK</span></div><div class="lin"><span>sku</span><span>varchar(40) único</span></div><div class="lin"><span>name</span><span>varchar(120)</span></div><div class="lin"><span>slug</span><span>varchar(120) único</span></div><div class="lin"><span>description</span><span>text</span></div><div class="lin"><span>price_cents</span><span>integer ≥ 0</span></div><div class="lin"><span>currency</span><span>Currency</span></div><div class="lin"><span>image_url</span><span>varchar(500)?</span></div><div class="lin"><span>active</span><span>boolean</span></div><div class="lin fk"><span>category_id</span><span>uuid? → categories</span></div><div class="lin"><span>created_at</span><span>timestamptz</span></div><div class="lin"><span>updated_at</span><span>timestamptz</span></div></div>
+    <div class="ent"><div class="cab">outbox_events</div>
+      <div class="lin pk"><span>id</span><span>uuid PK</span></div><div class="lin"><span>name</span><span>varchar(60)</span></div><div class="lin"><span>envelope</span><span>jsonb</span></div><div class="lin"><span>created_at</span><span>timestamptz</span></div><div class="lin"><span>published_at</span><span>timestamptz?</span></div></div>
+  </div>
+
+  <h2>categories</h2>
+  <table><thead><tr><th>Coluna</th><th>Tipo</th><th>Nulo</th><th>Padrão</th><th>Observação</th></tr></thead><tbody>
+    <tr><td class="m">id<span class="pk">PK</span></td><td class="m">UUID</td><td>não</td><td class="m">uuid()</td><td></td></tr>
+    <tr><td class="m">name</td><td class="m">VARCHAR(60)</td><td>não</td><td class="sem">sem padrão</td><td></td></tr>
+    <tr><td class="m">slug</td><td class="m">VARCHAR(120)</td><td>não</td><td class="sem">sem padrão</td><td>Único; usado no filtro <code>?category=</code></td></tr>
+    <tr><td class="m">created_at</td><td class="m">TIMESTAMPTZ(3)</td><td>não</td><td class="m">now()</td><td></td></tr>
+  </tbody></table>
+
+  <h2>products</h2>
+  <table><thead><tr><th>Coluna</th><th>Tipo</th><th>Nulo</th><th>Padrão</th><th>Observação</th></tr></thead><tbody>
+    <tr><td class="m">id<span class="pk">PK</span></td><td class="m">UUID</td><td>não</td><td class="m">uuid()</td><td></td></tr>
+    <tr><td class="m">sku</td><td class="m">VARCHAR(40)</td><td>não</td><td class="sem">sem padrão</td><td>Único; maiúsculas, números e hífen</td></tr>
+    <tr><td class="m">name</td><td class="m">VARCHAR(120)</td><td>não</td><td class="sem">sem padrão</td><td>Busca sem diferenciar maiúsculas</td></tr>
+    <tr><td class="m">slug</td><td class="m">VARCHAR(120)</td><td>não</td><td class="sem">sem padrão</td><td>Único</td></tr>
+    <tr><td class="m">description</td><td class="m">TEXT</td><td>não</td><td class="m">''</td><td>Busca</td></tr>
+    <tr><td class="m">price_cents</td><td class="m">INTEGER</td><td>não</td><td class="sem">sem padrão</td><td><code>CHECK (price_cents &gt;= 0)</code></td></tr>
+    <tr><td class="m">currency</td><td class="m">"Currency"</td><td>não</td><td class="m">BRL</td><td>BRL, USD ou EUR</td></tr>
+    <tr><td class="m">image_url</td><td class="m">VARCHAR(500)</td><td>sim</td><td class="sem">sem padrão</td><td></td></tr>
+    <tr><td class="m">active</td><td class="m">BOOLEAN</td><td>não</td><td class="m">true</td><td>Desativar em vez de apagar</td></tr>
+    <tr><td class="m">category_id</td><td class="m">UUID</td><td>sim</td><td class="sem">sem padrão</td><td>FK categories, ON DELETE SET NULL, índice</td></tr>
+    <tr><td class="m">created_at</td><td class="m">TIMESTAMPTZ(3)</td><td>não</td><td class="m">now()</td><td></td></tr>
+    <tr><td class="m">updated_at</td><td class="m">TIMESTAMPTZ(3)</td><td>não</td><td class="sem">sem padrão</td><td></td></tr>
+  </tbody></table>
+  <p>O índice composto <code>(active, created_at)</code> atende a listagem padrão da loja, que mostra só produtos ativos, dos mais novos para os mais antigos.</p>
+
+  <h2 id="outbox-catalog">outbox_events</h2>
+  <table><thead><tr><th>Coluna</th><th>Tipo</th><th>Nulo</th><th>Padrão</th><th>Observação</th></tr></thead><tbody>
+    <tr><td class="m">id<span class="pk">PK</span></td><td class="m">UUID</td><td>não</td><td class="sem">sem padrão</td><td>Mesmo id do envelope do evento</td></tr>
+    <tr><td class="m">name</td><td class="m">VARCHAR(60)</td><td>não</td><td class="sem">sem padrão</td><td>Nome do evento</td></tr>
+    <tr><td class="m">envelope</td><td class="m">JSONB</td><td>não</td><td class="sem">sem padrão</td><td>Envelope completo, validado com Zod</td></tr>
+    <tr><td class="m">created_at</td><td class="m">TIMESTAMPTZ(3)</td><td>não</td><td class="m">now()</td><td></td></tr>
+    <tr><td class="m">published_at</td><td class="m">TIMESTAMPTZ(3)</td><td>sim</td><td class="sem">sem padrão</td><td>Preenchido pelo relay</td></tr>
+  </tbody></table>
+  <p>O índice <code>(published_at, created_at)</code> deixa o relay achar rápido o que falta publicar, na ordem. A mesma tabela existe em <code>cesto_inventory</code>, <code>cesto_orders</code> e <code>cesto_payments</code>.</p>
+</section>
+
+<!-- 4 -->
+<section class="capitulo">
+  <header class="abertura"><span class="num">4</span><h1>cesto_inventory</h1><p>O saldo de cada produto e as reservas presas aos pedidos em andamento.</p></header>
+  <h2>Diagrama</h2>
+  <div class="er">
+    <div class="ent"><div class="cab">stock_items</div>
+      <div class="lin pk"><span>product_id</span><span>uuid PK</span></div><div class="lin"><span>sku</span><span>varchar(40)</span></div><div class="lin"><span>available</span><span>integer ≥ 0</span></div><div class="lin"><span>reserved</span><span>integer ≥ 0</span></div><div class="lin"><span>updated_at</span><span>timestamptz</span></div></div>
+    <div class="ent larga"><div class="cab">reservations</div>
+      <div class="lin pk"><span>id</span><span>uuid PK</span></div><div class="lin"><span>order_id</span><span>uuid</span></div><div class="lin fk"><span>product_id</span><span>uuid → stock_items</span></div><div class="lin"><span>quantity</span><span>integer &gt; 0</span></div><div class="lin"><span>status</span><span>ReservationStatus</span></div><div class="lin"><span>created_at</span><span>timestamptz</span></div><div class="lin"><span>updated_at</span><span>timestamptz</span></div></div>
+    <div class="ent"><div class="cab">processed_events</div>
+      <div class="lin pk"><span>event_id</span><span>uuid PK</span></div><div class="lin"><span>name</span><span>varchar(60)</span></div><div class="lin"><span>handled_at</span><span>timestamptz</span></div></div>
+    <div class="ent"><div class="cab">outbox_events</div>
+      <div class="lin pk"><span>id</span><span>uuid PK</span></div><div class="lin"><span>name</span><span>varchar(60)</span></div><div class="lin"><span>envelope</span><span>jsonb</span></div><div class="lin"><span>created_at</span><span>timestamptz</span></div><div class="lin"><span>published_at</span><span>timestamptz?</span></div></div>
+  </div>
+
+  <h2>stock_items</h2>
+  <table><thead><tr><th>Coluna</th><th>Tipo</th><th>Nulo</th><th>Padrão</th><th>Observação</th></tr></thead><tbody>
+    <tr><td class="m">product_id<span class="pk">PK</span></td><td class="m">UUID</td><td>não</td><td class="sem">sem padrão</td><td>Mesmo id do catálogo</td></tr>
+    <tr><td class="m">sku</td><td class="m">VARCHAR(40)</td><td>não</td><td class="sem">sem padrão</td><td>Cópia para leitura</td></tr>
+    <tr><td class="m">available</td><td class="m">INTEGER</td><td>não</td><td class="m">0</td><td><code>CHECK (available &gt;= 0)</code>; pode ser vendido</td></tr>
+    <tr><td class="m">reserved</td><td class="m">INTEGER</td><td>não</td><td class="m">0</td><td><code>CHECK (reserved &gt;= 0)</code>; preso a pedidos em andamento</td></tr>
+    <tr><td class="m">updated_at</td><td class="m">TIMESTAMPTZ(3)</td><td>não</td><td class="sem">sem padrão</td><td></td></tr>
+  </tbody></table>
+
+  <h2>reservations</h2>
+  <table><thead><tr><th>Coluna</th><th>Tipo</th><th>Nulo</th><th>Padrão</th><th>Observação</th></tr></thead><tbody>
+    <tr><td class="m">id<span class="pk">PK</span></td><td class="m">UUID</td><td>não</td><td class="m">uuid()</td><td></td></tr>
+    <tr><td class="m">order_id</td><td class="m">UUID</td><td>não</td><td class="sem">sem padrão</td><td>Único com <code>product_id</code></td></tr>
+    <tr><td class="m">product_id</td><td class="m">UUID</td><td>não</td><td class="sem">sem padrão</td><td>FK stock_items, ON DELETE RESTRICT</td></tr>
+    <tr><td class="m">quantity</td><td class="m">INTEGER</td><td>não</td><td class="sem">sem padrão</td><td><code>CHECK (quantity &gt; 0)</code></td></tr>
+    <tr><td class="m">status</td><td class="m">"ReservationStatus"</td><td>não</td><td class="m">HELD</td><td>HELD, COMMITTED ou RELEASED</td></tr>
+    <tr><td class="m">created_at</td><td class="m">TIMESTAMPTZ(3)</td><td>não</td><td class="m">now()</td><td>Índice <code>(status, created_at)</code></td></tr>
+    <tr><td class="m">updated_at</td><td class="m">TIMESTAMPTZ(3)</td><td>não</td><td class="sem">sem padrão</td><td></td></tr>
+  </tbody></table>
+
+  <h2>processed_events e outbox_events</h2>
+  <p><code>processed_events</code> registra cada evento já consumido, para que uma entrega repetida seja ignorada. Existe também em <code>cesto_orders</code> e <code>cesto_payments</code>.</p>
+  <table><thead><tr><th>Coluna</th><th>Tipo</th><th>Nulo</th><th>Padrão</th><th>Observação</th></tr></thead><tbody>
+    <tr><td class="m">event_id<span class="pk">PK</span></td><td class="m">UUID</td><td>não</td><td class="sem">sem padrão</td><td>Id do evento consumido</td></tr>
+    <tr><td class="m">name</td><td class="m">VARCHAR(60)</td><td>não</td><td class="sem">sem padrão</td><td></td></tr>
+    <tr><td class="m">handled_at</td><td class="m">TIMESTAMPTZ(3)</td><td>não</td><td class="m">now()</td><td></td></tr>
+  </tbody></table>
+  <p><code>outbox_events</code> tem a mesma estrutura descrita em <code>cesto_catalog</code>:</p>
+  <table><thead><tr><th>Coluna</th><th>Tipo</th><th>Nulo</th><th>Padrão</th><th>Observação</th></tr></thead><tbody>
+    <tr><td class="m">id<span class="pk">PK</span></td><td class="m">UUID</td><td>não</td><td class="sem">sem padrão</td><td>Mesmo id do envelope do evento</td></tr>
+    <tr><td class="m">name</td><td class="m">VARCHAR(60)</td><td>não</td><td class="sem">sem padrão</td><td>Nome do evento</td></tr>
+    <tr><td class="m">envelope</td><td class="m">JSONB</td><td>não</td><td class="sem">sem padrão</td><td>Envelope completo, validado com Zod</td></tr>
+    <tr><td class="m">created_at</td><td class="m">TIMESTAMPTZ(3)</td><td>não</td><td class="m">now()</td><td></td></tr>
+    <tr><td class="m">published_at</td><td class="m">TIMESTAMPTZ(3)</td><td>sim</td><td class="sem">sem padrão</td><td>Preenchido pelo relay</td></tr>
+  </tbody></table>
+</section>
+
+<!-- 5 -->
+<section class="capitulo">
+  <header class="abertura"><span class="num">5</span><h1>cesto_orders</h1><p>Pedidos, os itens com preço congelado e o histórico de cada mudança de status.</p></header>
+  <h2>Diagrama</h2>
+  <div class="er">
+    <div class="ent larga"><div class="cab">orders</div>
+      <div class="lin pk"><span>id</span><span>uuid PK</span></div><div class="lin"><span>number</span><span>serial único</span></div><div class="lin"><span>user_id</span><span>varchar(64)</span></div><div class="lin"><span>status</span><span>OrderStatus</span></div><div class="lin"><span>total_cents</span><span>integer ≥ 0</span></div><div class="lin"><span>currency</span><span>Currency</span></div><div class="lin"><span>payment_method</span><span>PaymentMethod</span></div><div class="lin"><span>payment_token</span><span>varchar(64)?</span></div><div class="lin"><span>shipping_address</span><span>jsonb</span></div><div class="lin"><span>cancel_reason</span><span>varchar(200)?</span></div><div class="lin"><span>created_at</span><span>timestamptz</span></div><div class="lin"><span>updated_at</span><span>timestamptz</span></div></div>
+    <div class="ent"><div class="cab">order_items</div>
+      <div class="lin pk"><span>id</span><span>uuid PK</span></div><div class="lin fk"><span>order_id</span><span>uuid → orders</span></div><div class="lin"><span>product_id</span><span>uuid</span></div><div class="lin"><span>sku</span><span>varchar(40)</span></div><div class="lin"><span>name</span><span>varchar(120)</span></div><div class="lin"><span>unit_price_cents</span><span>integer</span></div><div class="lin"><span>quantity</span><span>integer &gt; 0</span></div></div>
+    <div class="ent"><div class="cab">order_history</div>
+      <div class="lin pk"><span>id</span><span>uuid PK</span></div><div class="lin fk"><span>order_id</span><span>uuid → orders</span></div><div class="lin"><span>status</span><span>OrderStatus</span></div><div class="lin"><span>note</span><span>varchar(200)?</span></div><div class="lin"><span>created_at</span><span>timestamptz</span></div></div>
+    <div class="ent"><div class="cab">processed_events</div>
+      <div class="lin pk"><span>event_id</span><span>uuid PK</span></div><div class="lin"><span>name</span><span>varchar(60)</span></div><div class="lin"><span>handled_at</span><span>timestamptz</span></div></div>
+    <div class="ent"><div class="cab">outbox_events</div>
+      <div class="lin pk"><span>id</span><span>uuid PK</span></div><div class="lin"><span>name</span><span>varchar(60)</span></div><div class="lin"><span>envelope</span><span>jsonb</span></div><div class="lin"><span>created_at</span><span>timestamptz</span></div><div class="lin"><span>published_at</span><span>timestamptz?</span></div></div>
+  </div>
+
+  <h2>orders</h2>
+  <table><thead><tr><th>Coluna</th><th>Tipo</th><th>Nulo</th><th>Padrão</th><th>Observação</th></tr></thead><tbody>
+    <tr><td class="m">id<span class="pk">PK</span></td><td class="m">UUID</td><td>não</td><td class="m">uuid()</td><td></td></tr>
+    <tr><td class="m">number</td><td class="m">SERIAL</td><td>não</td><td>sequência</td><td>Único; número amigável mostrado na loja (#1021, #1022...)</td></tr>
+    <tr><td class="m">user_id</td><td class="m">VARCHAR(64)</td><td>não</td><td class="sem">sem padrão</td><td><code>sub</code> do JWT; índice <code>(user_id, created_at)</code></td></tr>
+    <tr><td class="m">status</td><td class="m">"OrderStatus"</td><td>não</td><td class="m">PENDING</td><td>Índice <code>(status, created_at)</code></td></tr>
+    <tr><td class="m">total_cents</td><td class="m">INTEGER</td><td>não</td><td class="sem">sem padrão</td><td><code>CHECK (total_cents &gt;= 0)</code></td></tr>
+    <tr><td class="m">currency</td><td class="m">"Currency"</td><td>não</td><td class="m">BRL</td><td></td></tr>
+    <tr><td class="m">payment_method</td><td class="m">"PaymentMethod"</td><td>não</td><td class="sem">sem padrão</td><td>card, pix ou boleto</td></tr>
+    <tr><td class="m">payment_token</td><td class="m">VARCHAR(64)</td><td>sim</td><td class="sem">sem padrão</td><td>Token do provedor (nunca o cartão)</td></tr>
+    <tr><td class="m">shipping_address</td><td class="m">JSONB</td><td>não</td><td class="sem">sem padrão</td><td>Endereço validado pelo esquema <code>Address</code></td></tr>
+    <tr><td class="m">cancel_reason</td><td class="m">VARCHAR(200)</td><td>sim</td><td class="sem">sem padrão</td><td></td></tr>
+    <tr><td class="m">created_at</td><td class="m">TIMESTAMPTZ(3)</td><td>não</td><td class="m">now()</td><td></td></tr>
+    <tr><td class="m">updated_at</td><td class="m">TIMESTAMPTZ(3)</td><td>não</td><td class="sem">sem padrão</td><td></td></tr>
+  </tbody></table>
+
+  <h2>order_items</h2>
+  <table><thead><tr><th>Coluna</th><th>Tipo</th><th>Nulo</th><th>Padrão</th><th>Observação</th></tr></thead><tbody>
+    <tr><td class="m">id<span class="pk">PK</span></td><td class="m">UUID</td><td>não</td><td class="m">uuid()</td><td></td></tr>
+    <tr><td class="m">order_id</td><td class="m">UUID</td><td>não</td><td class="sem">sem padrão</td><td>FK orders, ON DELETE CASCADE, índice</td></tr>
+    <tr><td class="m">product_id</td><td class="m">UUID</td><td>não</td><td class="sem">sem padrão</td><td>Referência lógica ao catálogo</td></tr>
+    <tr><td class="m">sku / name</td><td class="m">VARCHAR(40) / VARCHAR(120)</td><td>não</td><td class="sem">sem padrão</td><td>Cópia no momento da compra</td></tr>
+    <tr><td class="m">unit_price_cents</td><td class="m">INTEGER</td><td>não</td><td class="sem">sem padrão</td><td>Preço congelado</td></tr>
+    <tr><td class="m">quantity</td><td class="m">INTEGER</td><td>não</td><td class="sem">sem padrão</td><td><code>CHECK (quantity &gt; 0)</code></td></tr>
+  </tbody></table>
+
+  <h2>order_history</h2>
+  <table><thead><tr><th>Coluna</th><th>Tipo</th><th>Nulo</th><th>Padrão</th><th>Observação</th></tr></thead><tbody>
+    <tr><td class="m">id<span class="pk">PK</span></td><td class="m">UUID</td><td>não</td><td class="m">uuid()</td><td></td></tr>
+    <tr><td class="m">order_id</td><td class="m">UUID</td><td>não</td><td class="sem">sem padrão</td><td>FK orders, ON DELETE CASCADE; índice <code>(order_id, created_at)</code></td></tr>
+    <tr><td class="m">status</td><td class="m">"OrderStatus"</td><td>não</td><td class="sem">sem padrão</td><td>Status atingido</td></tr>
+    <tr><td class="m">note</td><td class="m">VARCHAR(200)</td><td>sim</td><td class="sem">sem padrão</td><td>Motivo ou observação</td></tr>
+    <tr><td class="m">created_at</td><td class="m">TIMESTAMPTZ(3)</td><td>não</td><td class="m">now()</td><td></td></tr>
+  </tbody></table>
+  <p><code>processed_events</code> e <code>outbox_events</code> seguem a estrutura descrita nos capítulos 3 e 4. A trilha da saga que a tela Pedidos mostra vem de <code>order_history</code>.</p>
+</section>
+
+<!-- 6 -->
+<section class="capitulo">
+  <header class="abertura"><span class="num">6</span><h1>cesto_payments e cesto_notifications</h1><p>As cobranças e estornos de cada pedido, e as notificações geradas a partir dos eventos.</p></header>
+  <h2>Diagrama</h2>
+  <div class="er" style="gap:6mm">
+    <div class="grupo"><span class="nome">cesto_payments</span>
+      <div class="ent"><div class="cab">payments</div>
+        <div class="lin pk"><span>id</span><span>uuid PK</span></div><div class="lin"><span>order_id</span><span>uuid</span></div><div class="lin"><span>user_id</span><span>varchar(64)</span></div><div class="lin"><span>amount_cents</span><span>integer</span></div><div class="lin"><span>currency</span><span>Currency</span></div><div class="lin"><span>method</span><span>PaymentMethod</span></div><div class="lin"><span>status</span><span>PaymentStatus</span></div><div class="lin"><span>reason</span><span>varchar(200)?</span></div><div class="lin"><span>provider_ref</span><span>varchar(80)</span></div><div class="lin"><span>created_at</span><span>timestamptz</span></div><div class="lin"><span>updated_at</span><span>timestamptz</span></div></div>
+      <div style="display:flex;flex-direction:column;gap:4mm">
+      <div class="ent"><div class="cab">processed_events</div>
+        <div class="lin pk"><span>event_id</span><span>uuid PK</span></div><div class="lin"><span>name</span><span>varchar(60)</span></div><div class="lin"><span>handled_at</span><span>timestamptz</span></div></div>
+      <div class="ent"><div class="cab">outbox_events</div>
+        <div class="lin pk"><span>id</span><span>uuid PK</span></div><div class="lin"><span>name</span><span>varchar(60)</span></div><div class="lin"><span>envelope</span><span>jsonb</span></div><div class="lin"><span>created_at</span><span>timestamptz</span></div><div class="lin"><span>published_at</span><span>timestamptz?</span></div></div>
+      </div>
+    </div>
+    <div class="grupo"><span class="nome">cesto_notifications</span>
+      <div class="ent"><div class="cab">notifications</div>
+        <div class="lin pk"><span>id</span><span>uuid PK</span></div><div class="lin"><span>event_id</span><span>uuid único</span></div><div class="lin"><span>user_id</span><span>varchar(64)</span></div><div class="lin"><span>kind</span><span>NotificationKind</span></div><div class="lin"><span>title</span><span>varchar(120)</span></div><div class="lin"><span>body</span><span>varchar(500)</span></div><div class="lin"><span>order_id</span><span>uuid?</span></div><div class="lin"><span>read_at</span><span>timestamptz?</span></div><div class="lin"><span>created_at</span><span>timestamptz</span></div></div>
+    </div>
+  </div>
+  <p>As linhas tracejadas separam os dois bancos. <code>processed_events</code> e <code>outbox_events</code> pertencem a <code>cesto_payments</code>; em <code>cesto_notifications</code>, a coluna única <code>event_id</code> faz o papel da deduplicação.</p>
+
+  <h2>payments</h2>
+  <table><thead><tr><th>Coluna</th><th>Tipo</th><th>Nulo</th><th>Padrão</th><th>Observação</th></tr></thead><tbody>
+    <tr><td class="m">id<span class="pk">PK</span></td><td class="m">UUID</td><td>não</td><td class="m">uuid()</td><td></td></tr>
+    <tr><td class="m">order_id</td><td class="m">UUID</td><td>não</td><td class="sem">sem padrão</td><td>Índice</td></tr>
+    <tr><td class="m">user_id</td><td class="m">VARCHAR(64)</td><td>não</td><td class="sem">sem padrão</td><td>Índice <code>(user_id, created_at)</code></td></tr>
+    <tr><td class="m">amount_cents</td><td class="m">INTEGER</td><td>não</td><td class="sem">sem padrão</td><td></td></tr>
+    <tr><td class="m">currency</td><td class="m">"Currency"</td><td>não</td><td class="m">BRL</td><td></td></tr>
+    <tr><td class="m">method</td><td class="m">"PaymentMethod"</td><td>não</td><td class="sem">sem padrão</td><td></td></tr>
+    <tr><td class="m">status</td><td class="m">"PaymentStatus"</td><td>não</td><td class="sem">sem padrão</td><td>APPROVED, DECLINED ou REFUNDED</td></tr>
+    <tr><td class="m">reason</td><td class="m">VARCHAR(200)</td><td>sim</td><td class="sem">sem padrão</td><td>Motivo da recusa ou do estorno</td></tr>
+    <tr><td class="m">provider_ref</td><td class="m">VARCHAR(80)</td><td>não</td><td class="sem">sem padrão</td><td>Referência no provedor</td></tr>
+    <tr><td class="m">created_at</td><td class="m">TIMESTAMPTZ(3)</td><td>não</td><td class="m">now()</td><td></td></tr>
+    <tr><td class="m">updated_at</td><td class="m">TIMESTAMPTZ(3)</td><td>não</td><td class="sem">sem padrão</td><td></td></tr>
+  </tbody></table>
+
+  <h2>notifications</h2>
+  <table><thead><tr><th>Coluna</th><th>Tipo</th><th>Nulo</th><th>Padrão</th><th>Observação</th></tr></thead><tbody>
+    <tr><td class="m">id<span class="pk">PK</span></td><td class="m">UUID</td><td>não</td><td class="m">uuid()</td><td></td></tr>
+    <tr><td class="m">event_id</td><td class="m">UUID</td><td>não</td><td class="sem">sem padrão</td><td>Único; impede notificação duplicada</td></tr>
+    <tr><td class="m">user_id</td><td class="m">VARCHAR(64)</td><td>não</td><td class="sem">sem padrão</td><td>Índices <code>(user_id, created_at)</code> e <code>(user_id, read_at)</code></td></tr>
+    <tr><td class="m">kind</td><td class="m">"NotificationKind"</td><td>não</td><td class="sem">sem padrão</td><td>WELCOME, ORDER_PLACED, ORDER_CONFIRMED, ORDER_CANCELLED, ORDER_SHIPPED, ORDER_DELIVERED, PAYMENT_DECLINED</td></tr>
+    <tr><td class="m">title</td><td class="m">VARCHAR(120)</td><td>não</td><td class="sem">sem padrão</td><td></td></tr>
+    <tr><td class="m">body</td><td class="m">VARCHAR(500)</td><td>não</td><td class="sem">sem padrão</td><td></td></tr>
+    <tr><td class="m">order_id</td><td class="m">UUID</td><td>sim</td><td class="sem">sem padrão</td><td></td></tr>
+    <tr><td class="m">read_at</td><td class="m">TIMESTAMPTZ(3)</td><td>sim</td><td class="sem">sem padrão</td><td>Nulo = não lida</td></tr>
+    <tr><td class="m">created_at</td><td class="m">TIMESTAMPTZ(3)</td><td>não</td><td class="m">now()</td><td></td></tr>
+  </tbody></table>
+</section>
+
+<!-- 7 -->
+<section class="capitulo">
+  <header class="abertura"><span class="num">7</span><h1>Máquinas de estado</h1><p>Os status que um pedido, uma reserva, um refresh token e um pagamento podem ter, e o que os faz mudar.</p></header>
+  <h2>Pedido</h2>
+  <div class="diagrama">
+    <svg viewBox="0 0 680 150" font-family="IBM Plex Mono" font-size="9.5" font-weight="600" fill="#1F201C">
+      <defs>
+        <marker id="a1" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#1F201C"/></marker>
+        <marker id="a2" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#9E2F4C"/></marker>
+      </defs>
+      <g stroke="#1F201C" stroke-width="1" fill="#F4EFE6">
+        <rect x="2" y="10" width="100" height="34" rx="17"/><rect x="132" y="10" width="140" height="34" rx="17"/><rect x="302" y="10" width="110" height="34" rx="17" fill="#E3ECE5" stroke="#2E5E43"/><rect x="442" y="10" width="100" height="34" rx="17"/><rect x="572" y="10" width="106" height="34" rx="17"/>
+        <rect x="272" y="104" width="140" height="34" rx="17" fill="#F7ECEE" stroke="#9E2F4C"/>
+      </g>
+      <g text-anchor="middle"><text x="52" y="31">PENDING</text><text x="202" y="31">AWAITING_PAYMENT</text><text x="357" y="31" fill="#2E5E43">CONFIRMED</text><text x="492" y="31">SHIPPED</text><text x="625" y="31">DELIVERED</text><text x="342" y="125" fill="#9E2F4C">CANCELLED</text></g>
+      <g stroke="#1F201C" stroke-width="1" marker-end="url(#a1)"><line x1="102" y1="27" x2="130" y2="27"/><line x1="272" y1="27" x2="300" y2="27"/><line x1="412" y1="27" x2="440" y2="27"/><line x1="542" y1="27" x2="570" y2="27"/></g>
+      <g stroke="#9E2F4C" stroke-width="1" stroke-dasharray="4 3" fill="none" marker-end="url(#a2)">
+        <path d="M52,44 L52,121 L270,121"/><path d="M202,44 L202,84 L300,84 L300,102"/><path d="M357,44 L357,102"/>
+      </g>
+      <g font-family="Public Sans" font-weight="400" font-size="8.5" fill="#5B574E">
+        <text x="58" y="80">rejeição de estoque</text><text x="58" y="91">ou cliente</text><text x="208" y="70">recusa ou cliente</text><text x="363" y="80">administrador</text>
+      </g>
+    </svg>
+  </div>
+  <table><thead><tr><th>De</th><th>Para</th><th>Gatilho</th></tr></thead><tbody>
+    <tr><td class="m">PENDING</td><td class="m">AWAITING_PAYMENT</td><td><code>inventory.reserved</code></td></tr>
+    <tr><td class="m">PENDING</td><td class="m">CANCELLED</td><td><code>inventory.rejected</code> ou cliente</td></tr>
+    <tr><td class="m">AWAITING_PAYMENT</td><td class="m">CONFIRMED</td><td><code>payment.approved</code></td></tr>
+    <tr><td class="m">AWAITING_PAYMENT</td><td class="m">CANCELLED</td><td><code>payment.declined</code> ou cliente</td></tr>
+    <tr><td class="m">CONFIRMED</td><td class="m">SHIPPED</td><td>Administrador</td></tr>
+    <tr><td class="m">CONFIRMED</td><td class="m">CANCELLED</td><td>Administrador</td></tr>
+    <tr><td class="m">SHIPPED</td><td class="m">DELIVERED</td><td>Administrador</td></tr>
+  </tbody></table>
+  <p>A troca de status usa <code>UPDATE ... WHERE id = ? AND status = ?</code>. Se duas mensagens tentarem mudar o mesmo pedido ao mesmo tempo, só uma vence, e cada mudança gera uma linha em <code>order_history</code>.</p>
+
+  <h2>Reserva de estoque</h2>
+  <table><thead><tr><th style="width:18%">Status</th><th style="width:28%">Significado</th><th>Efeito no saldo</th></tr></thead><tbody>
+    <tr><td class="m">HELD</td><td>Pedido em andamento</td><td class="m">available -= q, reserved += q</td></tr>
+    <tr><td class="m">COMMITTED</td><td>Pedido confirmado</td><td><code>reserved -= q</code> (baixa definitiva)</td></tr>
+    <tr><td class="m">RELEASED</td><td>Pedido cancelado</td><td>Se estava HELD: <code>reserved -= q, available += q</code>. Se estava COMMITTED: <code>available += q</code></td></tr>
+  </tbody></table>
+
+  <h2>Refresh token</h2>
+  <table><thead><tr><th style="width:18%">Situação</th><th style="width:34%">Colunas</th><th>Resultado</th></tr></thead><tbody>
+    <tr><td>Ativo</td><td><code>rotated_at</code> e <code>revoked_at</code> nulos</td><td>Pode ser trocado uma vez</td></tr>
+    <tr><td>Rotacionado</td><td><code>rotated_at</code> preenchido</td><td>Reuso revoga toda a família</td></tr>
+    <tr><td>Revogado</td><td><code>revoked_at</code> preenchido</td><td>Logout, reuso ou código reaproveitado</td></tr>
+    <tr><td>Expirado</td><td><code>expires_at</code> no passado</td><td>Apagado pela limpeza horária</td></tr>
+  </tbody></table>
+
+  <h2>Pagamento</h2>
+  <table><thead><tr><th style="width:18%">Status</th><th>Quando</th></tr></thead><tbody>
+    <tr><td class="m">APPROVED</td><td>Cobrança aceita pelo provedor</td></tr>
+    <tr><td class="m">DECLINED</td><td>Cobrança recusada; o motivo fica em <code>reason</code></td></tr>
+    <tr><td class="m">REFUNDED</td><td>Pedido cancelado depois da aprovação</td></tr>
+  </tbody></table>
+</section>
+
+<!-- 8 -->
+<section class="capitulo">
+  <header class="abertura"><span class="num">8</span><h1>Eventos, outbox e Redis</h1><p>Como um evento sai do banco, chega ao Redis e é lido pelos outros serviços.</p></header>
+  <h2>Outbox transacional</h2>
+  <ol class="passos">
+    <li>A mudança de negócio e a linha em <code>outbox_events</code> são gravadas na mesma transação.</li>
+    <li>O relay de cada serviço lê até 100 linhas com <code>published_at IS NULL</code>, em ordem de criação, publica com <code>XADD</code> e marca <code>published_at</code>.</li>
+    <li>Se o processo cair entre publicar e marcar, a linha é publicada de novo; quem consome descarta a repetição pela tabela <code>processed_events</code>.</li>
+  </ol>
+<pre>SELECT name, count(*) FROM outbox_events WHERE published_at IS NULL GROUP BY name;
+DELETE FROM outbox_events WHERE published_at &lt; now() - interval '30 days';</pre>
+
+  <h2>Chaves do Redis</h2>
+  <table><thead><tr><th style="width:30%">Chave</th><th style="width:10%">Tipo</th><th style="width:15%">Dono</th><th>Conteúdo</th></tr></thead><tbody>
+    <tr><td class="m">cesto:events:&lt;evento&gt;</td><td>Stream</td><td>quem publica</td><td>Envelope JSON no campo <code>event</code>; limite aproximado de 100 mil entradas</td></tr>
+    <tr><td class="m">cesto:events:dead-letter</td><td>Stream</td><td>todos</td><td>Eventos inválidos ou que falharam 5 vezes, com stream, id, grupo e motivo</td></tr>
+    <tr><td class="m">cesto:cart:&lt;userId&gt;</td><td>Hash</td><td class="m">cart</td><td>productId → quantidade; expira em 30 dias sem uso</td></tr>
+    <tr><td class="m">cesto:ratelimit:*</td><td>String</td><td class="m">gateway</td><td>Contadores por IP</td></tr>
+  </tbody></table>
+  <p>Cada serviço consumidor tem um grupo com o próprio nome (<code>inventory</code>, <code>orders</code>, <code>payments</code>, <code>notifications</code>, <code>cart</code>) em cada stream que lê. A página Serviços da interface mostra se o Redis está respondendo, pelo <code>GET /health</code> do gateway.</p>
+
+  <h2>Envelope de evento</h2>
+<pre>{
+  "id": "b0c5...", "name": "order.placed", "version": 1,
+  "occurredAt": "2026-10-22T16:57:02.311Z", "correlationId": "req-...",
+  "payload": { "orderId": "...", "userId": "...", "number": 1021, "items": [ ... ],
+               "totalCents": 36470, "currency": "BRL", "paymentMethod": "pix" }
+}</pre>
+  <p>O envelope e o payload são validados com os esquemas Zod de <code>packages/contracts/src/events.js</code> ao publicar e de novo ao ler.</p>
+</section>
+
+<!-- 9 -->
+<section class="capitulo">
+  <header class="abertura"><span class="num">9</span><h1>Como preparar o banco</h1><p>Com Docker, num PostgreSQL próprio, ao mudar o esquema e na hora do backup.</p></header>
+  <h2>Com Docker (recomendado)</h2>
+  <p>O <code>docker-compose.yml</code> sobe o PostgreSQL 16 e executa <code>docker/postgres/init.sql</code> na primeira vez, criando os seis bancos. Cada serviço roda <code>prisma migrate deploy</code> ao iniciar, com até 10 tentativas enquanto o banco sobe, e depois executa <code>node src/main.js</code>. Não há passo manual.</p>
+
+  <h2>PostgreSQL próprio</h2>
+<pre>CREATE ROLE cesto LOGIN PASSWORD 'troque-esta-senha';
+CREATE DATABASE cesto_auth OWNER cesto;
+CREATE DATABASE cesto_catalog OWNER cesto;
+CREATE DATABASE cesto_inventory OWNER cesto;
+CREATE DATABASE cesto_orders OWNER cesto;
+CREATE DATABASE cesto_payments OWNER cesto;
+CREATE DATABASE cesto_notifications OWNER cesto;</pre>
+  <p>Depois, com <code>DB_USER</code>, <code>DB_PASSWORD</code>, <code>DB_HOST</code> e <code>DB_PORT</code> no <code>.env</code>:</p>
+<pre>npm ci
+npm run generate   <span class="c"># gera o cliente Prisma de cada serviço em src/generated/prisma</span>
+npm run migrate</pre>
+  <p>Em servidores separados, defina o <code>DATABASE_URL</code> de cada serviço diretamente no ambiente.</p>
+
+  <h2>Mudar o esquema</h2>
+  <ol class="passos" id="passos-esquema">
+    <li>Edite <code>services/&lt;serviço&gt;/prisma/schema.prisma</code>.</li>
+    <li>Na pasta do serviço, rode <code>npx prisma migrate dev --name descricao</code> apontando para um banco de desenvolvimento.</li>
+    <li>Revise o SQL gerado em <code>prisma/migrations/</code> e acrescente restrições <code>CHECK</code> quando fizer sentido.</li>
+    <li>Rode <code>npm run generate</code> para atualizar o cliente Prisma e <code>npm test</code>. Como não há compilador, procure no código os usos das colunas alteradas (<code>grep</code> pelo nome em camelCase) e deixe os testes apontarem o resto.</li>
+    <li>Em produção, <code>prisma migrate deploy</code> aplica as migrações novas ao iniciar o serviço.</li>
+  </ol>
+
+  <h2>Backup e retenção</h2>
+  <table><thead><tr><th style="width:36%">Item</th><th>Recomendação</th></tr></thead><tbody>
+    <tr><td>Bancos</td><td><code>pg_dump -Fc</code> diário de cada banco; teste a restauração</td></tr>
+    <tr><td class="m">cesto_auth</td><td>Backup criptografado (contém chaves de assinatura e hashes)</td></tr>
+    <tr><td class="m">outbox_events / processed_events</td><td>Apague registros com mais de 30 dias</td></tr>
+    <tr><td class="m">notifications</td><td>Mantenha conforme a política da loja</td></tr>
+    <tr><td>Redis</td><td>AOF ligado no compose; o carrinho é o único dado de negócio</td></tr>
+  </tbody></table>
+<pre>for db in auth catalog inventory orders payments notifications; do
+  docker compose exec -T postgres pg_dump -U cesto -Fc cesto_$db &gt; backup-$db.dump
+done</pre>
+
+  <h2>Consultas úteis</h2>
+  <p>Pedidos e valor total por status:</p>
+<pre>SELECT status, count(*), sum(total_cents) / 100.0 AS total FROM orders GROUP BY status;</pre>
+  <p>Linha do tempo de um pedido:</p>
+<pre>SELECT o.number, h.status, h.note, h.created_at
+FROM order_history h JOIN orders o ON o.id = h.order_id
+WHERE o.number = 1021 ORDER BY h.created_at;</pre>
+  <p>Produtos com pouco estoque:</p>
+<pre>SELECT sku, available, reserved FROM stock_items WHERE available &lt; 5 ORDER BY available;</pre>
+  <p>Reservas presas há mais de 15 minutos:</p>
+<pre>SELECT r.order_id, r.status, s.sku, r.quantity
+FROM reservations r JOIN stock_items s USING (product_id)
+WHERE r.status = 'HELD' AND r.created_at &lt; now() - interval '15 minutes';</pre>
+</section>
+
+<script src="sumario.js"></script>
+</body>
+</html>
