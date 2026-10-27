@@ -425,8 +425,6 @@ node docs/fonte/gerar_pdfs.mjs
 
 Projeto desenvolvido em parceria com meu parceiro de projetos e de vida Erik Pimenta (@ravelroot).
 
-O repositório oficial fica em [Violet-pixel/E-commerce-Microservices-API](https://github.com/Violet-pixel/E-commerce-Microservices-API).
-
 ### Componentes de terceiros
 
 O Cesto inclui ou depende de componentes com licenças próprias, que continuam valendo para cada um deles:
